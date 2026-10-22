@@ -45,3 +45,19 @@ TEST(Mllp, FrameRoundTripWithEmbeddedCr) {
     ASSERT_TRUE(msg.has_value());
     ASSERT_EQ(*msg, payload);
 }
+
+TEST(Mllp, TwoFramesBackToBack) {
+    MllpCodec c;
+    std::optional<std::string> msg;
+    for (char ch : std::string("\x0B""ONE\x1C\x0D")) msg = c.feed(static_cast<uint8_t>(ch));
+    ASSERT_TRUE(msg.has_value());
+    ASSERT_EQ(*msg, "ONE");
+    for (char ch : std::string("\x0B""TWO\x1C\x0D")) msg = c.feed(static_cast<uint8_t>(ch));
+    ASSERT_TRUE(msg.has_value());
+    ASSERT_EQ(*msg, "TWO");
+}
+
+TEST(Mllp, GarbageFirstByteThrows) {
+    MllpCodec c;
+    ASSERT_THROW(c.feed('X'), lis::ProtocolError);
+}
