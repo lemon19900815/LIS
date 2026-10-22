@@ -1,0 +1,6 @@
+[requires]
+asio/1.30.2
+gtest/1.14.0
+
+[generators]
+MSBuildDeps
