@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <!-- 三工程公共编译骨架：lislib / listest / lisdemo 共享，工程特有项留在各自 vcxproj。
+       本文件由 MSBuild 在 Microsoft.Common.props 阶段自动导入（早于各 vcxproj 内容），
+       依赖 $(ProjectName)/$(Platform)/$(Configuration) 的属性在使用点求值，此处定义安全。 -->
+
+  <!-- 工具集与字符集（三工程一致） -->
+  <PropertyGroup>
+    <PlatformToolset>v145</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+
+  <!-- conan MSBuildDeps 产物（路径相对本文件，勿直接 conan install . 到别的目录） -->
+  <Import Project="conan\conandeps.props" Condition="Exists('conan\conandeps.props')" />
+
+  <!-- 中间目录约定（按工程名分目录，避免并行工程互踩）。
+       用 $(MSBuildProjectName) 而非 $(ProjectName)：后者在 C++ 求值链中定义过晚，
+       Directory.Build.props 阶段引用会被冻结为空串（MSB8028 共享中间目录警告）。 -->
+  <PropertyGroup>
+    <IntDir>obj\$(MSBuildProjectName)\$(Platform)\$(Configuration)\</IntDir>
+  </PropertyGroup>
+
+  <!-- 公共编译选项：C++17、UTF-8 源码、大对象、独立 ASIO -->
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <AdditionalOptions>/utf-8 /bigobj %(AdditionalOptions)</AdditionalOptions>
+      <PreprocessorDefinitions>ASIO_STANDALONE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+  </ItemDefinitionGroup>
+
+  <!-- Debug: /MDd -->
+  <ItemDefinitionGroup Condition="'$(Configuration)'=='Debug'">
+    <ClCompile>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+    </ClCompile>
+  </ItemDefinitionGroup>
+
+  <!-- Release: /MD -->
+  <ItemDefinitionGroup Condition="'$(Configuration)'=='Release'">
+    <ClCompile>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+    </ClCompile>
+  </ItemDefinitionGroup>
+</Project>

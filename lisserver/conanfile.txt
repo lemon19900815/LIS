@@ -1,3 +1,5 @@
+# Debug:   conan install . --output-folder=conan
+# Release: conan install . --output-folder=conan -s build_type=Release
 [requires]
 asio/1.30.2
 gtest/1.14.0
