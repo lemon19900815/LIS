@@ -2,6 +2,7 @@
 #pragma once
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <string>
 
 namespace lis {
@@ -14,5 +15,8 @@ public:
     virtual bool write(const uint8_t* buf, size_t n) = 0;           // 整帧单次写出
     virtual void close() = 0;
 };
+
+// 默认 TCP 实现：声明在抽象头，定义在库内（tcp_transport.cpp）
+std::unique_ptr<ITransport> make_tcp_client();
 
 }  // namespace lis

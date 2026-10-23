@@ -1,0 +1,29 @@
+// include/lis/listener.h
+#pragma once
+#include <lis/transport.h>
+#include <cstdint>
+#include <memory>
+#include <optional>
+#include <string>
+
+namespace lis {
+
+struct Accepted {
+    std::unique_ptr<ITransport> transport;
+    std::string remote_ip;
+    uint16_t remote_port = 0;
+};
+
+// 服务端监听抽象：accept 阻塞至超时（返回 nullopt）或新连接
+class IListener {
+public:
+    virtual ~IListener() = default;
+    virtual bool listen(uint16_t port) = 0;
+    virtual std::optional<Accepted> accept(int timeout_ms) = 0;
+    virtual uint16_t local_port() const = 0;
+};
+
+// 默认 TCP 实现：声明在抽象头，定义在库内（tcp_transport.cpp）
+std::unique_ptr<IListener> make_tcp_listener();
+
+}  // namespace lis
