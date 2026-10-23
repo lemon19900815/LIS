@@ -13,6 +13,10 @@
   <PropertyGroup>
     <OutDir>lisdemo\$(Platform)\$(Configuration)\</OutDir>
   </PropertyGroup>
+  <!-- Release: asio 为 header-only，include 路径与配置无关，复用 conan Debug 变量 props（不硬编码用户缓存绝对路径） -->
+  <ImportGroup Condition="'$(Configuration)' == 'Release' And '$(Platform)' == 'x64'">
+    <Import Project="conan\conan_asio_vars_debug_x64.props" />
+  </ImportGroup>
   <ItemDefinitionGroup>
     <ClCompile>
       <AdditionalIncludeDirectories>include;demo;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -21,6 +25,11 @@
       <AdditionalDependencies>lislib.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>lib\$(Platform)\$(Configuration);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)' == 'Release'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(ConanasioIncludeDirectories)%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="demo\lis_demo.cpp" />

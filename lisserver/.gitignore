@@ -1,0 +1,6 @@
+conan/
+obj/
+lib/
+listest/x64/
+lisdemo/x64/
+*.user
