@@ -53,7 +53,7 @@
 - Modify: `lisserver\include\lis\transport.h`（追加 `make_tcp_client` 工厂声明 + `<memory>`）
 - Create: `tools\header_probe.cpp`
 - Create: `tools\header_probe.vcxproj`
-- Create: `.gitignore`（仓库根，当前不存在；`lisserver\.gitignore` 只管子树）
+- Modify: `.gitignore`（仓库根；实施开始时已存在含 `.worktrees/` 一行——**追加** `tools/obj/`，勿动既有行）
 
 - [ ] **Step 1: 写 `lisserver\include\lis\listener.h`**（新抽象头，纯标准库，内容来自设计 §3.1 原文）
 
@@ -122,6 +122,10 @@ std::unique_ptr<ITransport> make_tcp_client();
 // tools/header_probe.cpp
 // 公共头边界守卫：编译通过 = 接入方只含 lislib 公共头即可使用（无需 asio）。
 // 注意：不含 <lis/tcp_transport.h>——它是库内实现头（含 asio），接入方经 ITransport/IListener 消费。
+// 维护约定：新增公共头必须同步加入下方清单（tcp_transport.h 除外），否则守卫范围静默缩水。
+#if __has_include(<asio.hpp>)
+#error "header_probe: asio 可见——隔离前提被破坏（工程被移入 lisserver 子树/祖先 props/INCLUDE 污染），本守卫已失效"
+#endif
 #include <lis/ack_builder.h>
 #include <lis/er7_parser.h>
 #include <lis/listener.h>
@@ -146,12 +150,14 @@ int main() { return 0; }
 
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
+<!-- 边界守卫工程：必须留在仓库根 tools\（lisserver\Directory.Build.props 作用域之外），
+     且不得导入任何 conan props——否则 asio include 被注入，守卫静默失效（误绿）。 -->
 <Project DefaultTargets="Build" ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|x64"><Configuration>Debug</Configuration><Platform>x64</Platform></ProjectConfiguration>
     <ProjectConfiguration Include="Release|x64"><Configuration>Release</Configuration><Platform>x64</Platform></ProjectConfiguration>
   </ItemGroup>
-  <PropertyGroup Label="Globals"><ProjectGuid>{A1B2C3D4-0002-4000-8000-000000000002}</ProjectGuid></PropertyGroup>
+  <PropertyGroup Label="Globals"><ProjectGuid>{A1B2C3D4-0004-4000-8000-000000000004}</ProjectGuid></PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
@@ -177,7 +183,7 @@ int main() { return 0; }
 </Project>
 ```
 
-仓库根 `.gitignore`（新建；`lisserver\.gitignore` 已存在但只覆盖 `lisserver\` 子树）：
+仓库根 `.gitignore`（实施开始时已含 `.worktrees/` 一行——在其后**追加** `tools/obj/`，不得覆盖；`lisserver\.gitignore` 只覆盖子树）：
 
 ```
 tools/obj/
