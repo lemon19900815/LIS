@@ -68,11 +68,11 @@ TEST(Ack, FiveCharMsh2Verbatim) {
 TEST(Ack, EscapesErrDelimiters) {
     lis::Er7Parser p;
     auto in = p.parse(kInbound);
-    auto ack = lis::build_ack(in, lis::AckCode::AE, "bad | field ^ tail \r");
+    auto ack = lis::build_ack(in, lis::AckCode::AE, "bad | field ^ tail \r\n");
     auto m2 = p.parse(p.encode(ack));
     ASSERT_EQ(m2.segments.size(), 3u);         // \r 不再制造假段边界
-    ASSERT_EQ(lis::Terser::get(m2, "/MSA-3"), "bad \\F\\ field \\S\\ tail \\X0d\\");
-    ASSERT_EQ(lis::Terser::get(m2, "/ERR-1-4"), "bad \\F\\ field \\S\\ tail \\X0d\\");
+    ASSERT_EQ(lis::Terser::get(m2, "/MSA-3"), "bad \\F\\ field \\S\\ tail \\X0d\\\\X0a\\");
+    ASSERT_EQ(lis::Terser::get(m2, "/ERR-1-4"), "bad \\F\\ field \\S\\ tail \\X0d\\\\X0a\\");
 }
 
 TEST(Ack, CustomEncodingCharsPreservedAndEscaped) {

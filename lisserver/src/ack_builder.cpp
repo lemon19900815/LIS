@@ -31,6 +31,7 @@ std::string escape_err(const std::string& err, const EncodingChars& ec) {
         else if (c == ec.repeat) seq = "R";
         else if (c == ec.subcomponent) seq = "T";
         else if (c == '\r') seq = "X0d";
+        else if (c == '\n') seq = "X0a";
         if (seq) {
             out.push_back(ec.escape);
             out.append(seq);
