@@ -18,18 +18,33 @@ const Segment* find_seg(const Message& m, const std::string& name) {
 
 struct Path { std::string seg; int field; int comp; };  // comp=0 表示未指定
 
+// 任何 HL7 v2 段的字段/组分号都远小于 999；上限同时挡住 atoi 溢出与 set 补位内存爆炸
+constexpr int kMaxNo = 999;
+
+bool is_digits(const std::string& s) {
+    return !s.empty() && s.find_first_not_of("0123456789") == std::string::npos;
+}
+
 Path parse_path(const char* path) {
-    // 形如 "/MSH-9-2"
+    // 形如 "/MSH-9-2"；字段号/组分号须为 1..999 的纯数字
     std::string p(path);
     if (p.empty() || p[0] != '/') throw TerserPathError("path must start with /");
     Path out; out.field = 0; out.comp = 0;
     auto t1 = p.find('-', 1);
     if (t1 == std::string::npos) throw TerserPathError("missing field: " + p);
     out.seg = p.substr(1, t1 - 1);
+    if (out.seg.empty()) throw TerserPathError("empty segment name: " + p);
     auto t2 = p.find('-', t1 + 1);
-    out.field = std::atoi(p.substr(t1 + 1, t2 == std::string::npos ? std::string::npos : t2 - t1 - 1).c_str());
-    if (out.field <= 0) throw TerserPathError("bad field no: " + p);
-    if (t2 != std::string::npos) out.comp = std::atoi(p.substr(t2 + 1).c_str());
+    std::string field_token = p.substr(t1 + 1, t2 == std::string::npos ? std::string::npos : t2 - t1 - 1);
+    std::string comp_token = (t2 == std::string::npos) ? "" : p.substr(t2 + 1);
+    if (!is_digits(field_token) || field_token.size() > 3) throw TerserPathError("field no must be 1-999: " + p);
+    out.field = std::atoi(field_token.c_str());
+    if (out.field < 1) throw TerserPathError("field no must be 1-999: " + p);
+    if (!comp_token.empty()) {
+        if (!is_digits(comp_token) || comp_token.size() > 3) throw TerserPathError("component no must be 1-999: " + p);
+        out.comp = std::atoi(comp_token.c_str());
+        if (out.comp < 1) throw TerserPathError("component no must be 1-999: " + p);
+    }
     return out;
 }
 
