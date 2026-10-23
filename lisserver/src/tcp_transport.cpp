@@ -30,7 +30,8 @@ bool TcpTransport::connect(const std::string& host, uint16_t port, int timeout_m
         return false;
     }
     if (ec) { close(); return false; }
-    socket_.set_option(asio::ip::tcp::no_delay(true));
+    std::error_code opt_ec;
+    socket_.set_option(asio::ip::tcp::no_delay(true), opt_ec);
     return true;
 }
 
@@ -65,7 +66,8 @@ std::unique_ptr<TcpTransport> TcpTransport::accept(int timeout_ms) {
         return nullptr;
     }
     if (ec) return nullptr;
-    t->socket_.set_option(asio::ip::tcp::no_delay(true));
+    std::error_code opt_ec;
+    t->socket_.set_option(asio::ip::tcp::no_delay(true), opt_ec);
     return t;
 }
 
@@ -84,6 +86,7 @@ int TcpTransport::read(uint8_t* buf, size_t n, int timeout_ms) {
 
 bool TcpTransport::write(const uint8_t* buf, size_t n) {
     if (!socket_.is_open()) return false;
+    std::lock_guard<std::mutex> lk(write_mu_);        // 并发写串行化（T8 池任务/T9 多线程调用）
     std::error_code ec;
     asio::write(socket_, asio::buffer(buf, n), ec);   // 整帧单次写出
     return !ec;
@@ -113,7 +116,9 @@ std::string TcpTransport::remote_ip() const {
 
 uint16_t TcpTransport::remote_port() const {
     std::error_code ec;
-    return socket_.remote_endpoint(ec).port();
+    auto ep = socket_.remote_endpoint(ec);
+    if (ec) return 0;
+    return ep.port();
 }
 
 }  // namespace lis

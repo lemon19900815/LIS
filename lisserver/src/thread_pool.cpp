@@ -21,7 +21,11 @@ void ThreadPool::submit(std::function<void()> task) {
             return;
         }
     }
-    if (task) task();   // CallerRuns
+    try {
+        if (task) task();   // CallerRuns
+    } catch (...) {
+        // 同上兜底
+    }
 }
 
 void ThreadPool::loop() {
@@ -34,7 +38,11 @@ void ThreadPool::loop() {
             task = std::move(tasks_.front());
             tasks_.pop();
         }
-        task();
+        try {
+            task();
+        } catch (...) {
+            // 兜底：任务异常不得终止 worker/进程（v1 无日志框架，静默吞掉）
+        }
     }
 }
 
