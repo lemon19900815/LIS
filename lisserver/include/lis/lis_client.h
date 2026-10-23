@@ -22,6 +22,8 @@ class LisIoError : public std::runtime_error { public: using std::runtime_error:
 // 语义（对齐 HAPI + 设计 §5.8）：先按 MSH-10 登记 pending -> 写帧 -> 按 MSA-2 归位；
 // 超时/IO 失败 -> 丢弃连接重建 -> 原报文重试 N 次（沿用原 MSH-10，每次独立计时）。
 // 多线程共享安全；对端 NAK 不抛异常，原样返回给调用方解析 MSA-1。
+// 并发语义：任一调用方超时/写失败会丢弃共享连接，其余在途等待者按同样的重试语义自动重试；
+// 并发在途调用间 MSH-10 必须唯一（复用将得到 LisIoError 拒绝，报文不发送）。
 class LisClient {
 public:
     struct Config { std::string host; uint16_t port; int timeout_ms = 5000; int retry = 3; int read_timeout_ms = 500; };
@@ -34,6 +36,7 @@ public:
 
     Message send_and_receive(const Message& out);
     bool connected() const { return connected_.load(); }
+    // msg_id 仅作调用方回执关联；result 的 MSH-10 为空时实际控制 ID 由客户端自动生成，两者可能不同。
     void report_async(const Message& result, std::string msg_id, StatusCb cb);
 
 private:

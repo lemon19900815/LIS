@@ -73,7 +73,9 @@ Message LisClient::send_and_receive(const Message& out) {
         std::future<std::string> fut = p->prom.get_future();
         {
             std::lock_guard<std::mutex> pl(pending_mu_);
-            pending_[control_id] = p;                  // 先登记后发送
+            auto inserted = pending_.emplace(control_id, p).second;   // 先登记后发送
+            if (!inserted)
+                throw LisIoError("MSH-10 already in flight: " + control_id);
         }
         if (!transport_.write(reinterpret_cast<const uint8_t*>(framed.data()), framed.size())) {
             disconnect();                              // IO 失败：丢弃连接，进入重试
@@ -85,12 +87,16 @@ Message LisClient::send_and_receive(const Message& out) {
         }
         try {
             return parser.parse(fut.get());
+        } catch (const LisIoError&) {
+            // 他方断开/清理在途登记（连接丢失）：与自身超时/写失败同样按可重试处理
+            disconnect();
+            continue;
         } catch (const ParseError& e) {
             throw LisIoError(std::string("bad response: ") + e.what());
         }
     }
     throw LisTimeoutError("timeout waiting response to " + control_id + " after " +
-                          std::to_string((cfg_.retry + 1) * cfg_.timeout_ms) + " ms");
+                          std::to_string(cfg_.retry + 1) + " attempts");
 }
 
 void LisClient::report_async(const Message& result, std::string msg_id, StatusCb cb) {
@@ -123,7 +129,13 @@ void LisClient::read_loop() {
             }
         } catch (const ProtocolError&) { break; }      // 帧违规：断开
     }
-    connected_ = false;                                // 收尾失败通知由 disconnect() 负责
+    {
+        std::lock_guard<std::mutex> pl(pending_mu_);
+        for (auto& [k, p] : pending_)
+            p->prom.set_exception(std::make_exception_ptr(LisIoError("connection lost")));
+        pending_.clear();
+    }
+    connected_ = false;                                // 对端已死：立即唤醒在途等待者走重试
 }
 
 }  // namespace lis
