@@ -91,8 +91,11 @@ bool TcpTransport::write(const uint8_t* buf, size_t n) {
 
 void TcpTransport::close() {
     std::error_code ec;
-    if (socket_.is_open()) socket_.close(ec);
-    if (acceptor_) acceptor_->close(ec);
+    if (socket_.is_open()) {
+        socket_.shutdown(asio::ip::tcp::socket::shutdown_both, ec);   // 规范打断阻塞读
+        socket_.close(ec);
+    }
+    if (acceptor_ && acceptor_->is_open()) acceptor_->close(ec);
 }
 
 uint16_t TcpTransport::local_port() const {
