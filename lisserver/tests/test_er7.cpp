@@ -50,3 +50,32 @@ TEST(Er7, ParseRejectsGarbage) {
     Er7Parser p;
     ASSERT_THROW(p.parse("NOT_A_HL7_MESSAGE"), lis::ParseError);
 }
+
+TEST(Er7, AcceptsTrailingCrLf) {
+    Er7Parser p;
+    auto m = p.parse("MSH|^~\\&|A|B|C|D|||QRY^Q02|ID1|P|2.3\rPID|1||123\r\n");
+    ASSERT_EQ(lis::Terser::get(m, "/PID-3"), "123");
+}
+
+TEST(Er7, AcceptsCrLfBetweenSegments) {
+    Er7Parser p;
+    auto m = p.parse("MSH|^~\\&|A|B|C|D|||QRY^Q02|ID1|P|2.3\r\nPID|1||123\r\nOBR|1");
+    ASSERT_EQ(lis::Terser::get(m, "/PID-3"), "123");
+    ASSERT_EQ(lis::Terser::get(m, "/OBR-1"), "1");
+}
+
+TEST(Er7, EmptyFieldsKeepPosition) {
+    Er7Parser p;
+    auto m = p.parse("MSH|^~\\&|A||C");
+    ASSERT_EQ(lis::Terser::get(m, "/MSH-3"), "A");
+    ASSERT_EQ(lis::Terser::get(m, "/MSH-4"), "");
+    ASSERT_EQ(lis::Terser::get(m, "/MSH-5"), "C");
+    ASSERT_EQ(p.encode(m), "MSH|^~\\&|A||C");
+}
+
+TEST(Er7, Msh2RoundTrips) {
+    Er7Parser p;
+    auto m = p.parse("MSH|^~\\&|A|B|C|D|||QRY^Q02|ID1|P|2.3");
+    ASSERT_EQ(lis::Terser::get(m, "/MSH-2"), "^~\\&");
+    ASSERT_EQ(p.encode(p.parse(p.encode(m))), p.encode(m));
+}

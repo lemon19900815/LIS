@@ -1,5 +1,6 @@
 // tests/test_terser.cpp —— 路径护栏（病态路径必须抛 TerserPathError 而非触发补位爆炸）
 #include <gtest/gtest.h>
+#include <lis/er7_parser.h>
 #include <lis/message.h>
 #include <lis/terser.h>
 
@@ -30,4 +31,29 @@ TEST(Terser, PathGuardAcceptsUpperBound) {
     Terser::set(m, "/MSH-999", "x");                 // 999 在界内，补位量级极小
     ASSERT_EQ(Terser::get(m, "/MSH-999"), "x");
     ASSERT_EQ(Terser::get(m, "/MSH-998"), "");       // 补位出来的空字段
+}
+
+TEST(Terser, SetExistingAndNewField) {
+    lis::Er7Parser p;
+    auto m = p.parse("MSH|^~\\&|A|B|C|D|||QRY^Q02|ID1|P|2.3");
+    lis::Terser::set(m, "/MSH-10", "NEWID");
+    ASSERT_EQ(lis::Terser::get(m, "/MSH-10"), "NEWID");
+    lis::Terser::set(m, "/PID-5-1", "Zhang");
+    lis::Terser::set(m, "/PID-5-2", "San");
+    ASSERT_EQ(lis::Terser::get(m, "/PID-5"), "Zhang^San");
+    // set 按 1 基字段号补位空字段（PID-1..4 为空），HL7 正确编码是 5 个竖线，非 "PID|Zhang^San"
+    ASSERT_EQ(p.encode(m).find("PID|||||Zhang^San") != std::string::npos, true);
+}
+
+TEST(Terser, GetMissingReturnsEmpty) {
+    lis::Er7Parser p;
+    auto m = p.parse("MSH|^~\\&|A");
+    ASSERT_EQ(lis::Terser::get(m, "/PID-3"), "");
+    ASSERT_EQ(lis::Terser::get(m, "/MSH-99"), "");
+}
+
+TEST(Terser, BadPathThrows) {
+    lis::Er7Parser p;
+    auto m = p.parse("MSH|^~\\&|A");
+    ASSERT_THROW(lis::Terser::get(m, "MSH-3"), lis::TerserPathError);
 }

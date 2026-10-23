@@ -21,7 +21,7 @@ struct Message {
     EncodingChars ec;
     std::string version;           // MSH-12
     std::vector<Segment> segments;
-    std::string raw;
+    std::string raw;               // parse 时的原文快照，set 后不更新；序列化一律走 Er7Parser::encode
 };
 
 struct MessageMeta {

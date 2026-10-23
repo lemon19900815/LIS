@@ -49,12 +49,14 @@ Message Er7Parser::parse(const std::string& raw) {
     std::string line;
     bool first = true;
     while (std::getline(iss, line, '\r')) {
+        if (!line.empty() && line.back() == '\n') line.pop_back();   // 容忍 \r\n 行尾
+        if (!line.empty() && line.front() == '\n') line.erase(0, 1); // 段间 \r\n 的 \n 落在下一段行首
         if (line.empty()) continue;
         m.segments.push_back(parse_segment(line, m.ec, first));
         first = false;
     }
     if (m.segments.empty()) throw ParseError("no segments");
-    try { m.version = Terser::get(m, "/MSH-12"); } catch (...) { m.version.clear(); }
+    try { m.version = Terser::get(m, "/MSH-12"); } catch (const TerserPathError&) { m.version.clear(); }
     return m;
 }
 
