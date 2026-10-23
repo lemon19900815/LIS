@@ -7,6 +7,8 @@
 namespace lis {
 
 // ORU^R01：把结果报文交给上层回调，回 AA。
+// 回调在服务端业务池线程并发调用（多连接与同连接流水线均会触发），实现须线程安全；
+// 回调抛异常经 Router 兜底回 AE（触发仪器重发）。
 class OruHandler : public IHandler {
 public:
     using ResultCb = std::function<void(const Message& oru)>;

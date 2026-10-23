@@ -38,3 +38,21 @@ TEST(E2e, QueryReturnsOrfAndOruGetsAck) {
     ASSERT_TRUE(oru_seen);
     server.stop();
 }
+
+TEST(E2e, QueryNoSampleReturnsAr) {
+    lis::Router router;
+    router.add("QRY", "Q02", "*", std::make_shared<lis::QryHandler>(
+        std::make_shared<lis::SimProvider>(std::vector<std::string>{"GLU"})));
+    lis::LisServer server({0, 2, 500}, std::move(router));
+    server.start();
+    lis::LisClient client({"127.0.0.1", server.local_port(), 2000, 1});
+    lis::Er7Parser p;
+
+    auto nack = client.send_and_receive(p.parse(
+        "MSH|^~\\&|I|F|L|F|20261022120000||QRY^Q02|E9|P|2.3.1\rQRD|||||"));
+    ASSERT_EQ(lis::Terser::get(nack, "/MSH-9"), "ACK^Q02");
+    ASSERT_EQ(lis::Terser::get(nack, "/MSA-1"), "AR");
+    ASSERT_EQ(lis::Terser::get(nack, "/MSA-2"), "E9");
+    ASSERT_EQ(lis::Terser::get(nack, "/MSA-3"), "sample not found");
+    server.stop();
+}
