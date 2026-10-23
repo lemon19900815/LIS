@@ -29,6 +29,9 @@ public:
     void start();
     void stop();
     uint16_t local_port() const;
+    // 连接回调：在 acceptor 与各 reader 线程并发调用，回调自身须线程安全；
+    // 不得在回调内调用 start()/stop()（reader 线程内 stop 会自 join 死锁）；
+    // 须在 start() 前设置（此后对 conn_cb_ 的读写无锁）。
     void set_conn_listener(ConnListener cb);
 
 private:
@@ -36,12 +39,15 @@ private:
         std::unique_ptr<TcpTransport> transport;
         std::thread reader;
         std::atomic<bool> open{false};
+        std::string ip;          // accept 时快照（transport 关闭后仍可用）
+        uint16_t port = 0;
     };
     void accept_loop();
     void read_loop(std::shared_ptr<Connection> conn);
 
     Config cfg_;
     Router router_;
+    // 同一连接多帧并发处理，回复到达顺序不保证（客户端须按 MSA-2 配对）
     ThreadPool pool_;
     TcpTransport listener_;
     std::thread acceptor_;

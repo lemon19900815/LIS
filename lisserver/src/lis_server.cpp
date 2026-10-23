@@ -9,11 +9,14 @@
 namespace lis {
 
 LisServer::LisServer(Config cfg, Router router)
-    : cfg_(cfg), router_(std::move(router)), pool_(cfg.workers, 256) {}
+    : cfg_(cfg), router_(std::move(router)), pool_(cfg.workers, 256) {
+    if (cfg_.workers == 0) throw std::runtime_error("LisServer: workers must be >= 1");
+}
 
 LisServer::~LisServer() { stop(); }
 
 void LisServer::start() {
+    if (acceptor_.joinable()) throw std::runtime_error("LisServer already started");
     if (!listener_.listen(cfg_.port))
         throw std::runtime_error("listen failed on port " + std::to_string(cfg_.port));
     stopping_ = false;
@@ -29,6 +32,8 @@ void LisServer::accept_loop() {
         auto t = listener_.accept(500);          // 500ms 轮询式 accept，给停止标志让路
         if (!t) continue;
         auto conn = std::make_shared<Connection>();
+        conn->ip = t->remote_ip();                 // accept 时快照（transport 关闭后仍可用）
+        conn->port = t->remote_port();
         conn->transport = std::move(t);
         conn->open = true;
         {
@@ -45,8 +50,7 @@ void LisServer::accept_loop() {
                 connections_.end());
             connections_.push_back(conn);
         }
-        const std::string ip = conn->transport->remote_ip();
-        if (conn_cb_) conn_cb_(ip, true);
+        if (conn_cb_) conn_cb_(conn->ip, true);
         conn->reader = std::thread([this, conn] { read_loop(conn); });
     }
 }
@@ -58,43 +62,42 @@ void LisServer::read_loop(std::shared_ptr<Connection> conn) {
         int n = conn->transport->read(buf, sizeof buf, cfg_.read_timeout_ms);
         if (n == 0) continue;                    // 读超时：继续（可中断循环）
         if (n < 0) break;                        // 对端断开/IO 错误
-        std::optional<std::string> msg;
         try {
-            for (int i = 0; i < n && !msg; ++i) msg = codec.feed(buf[i]);
+            for (int i = 0; i < n; ++i) {        // 同一段读到的多帧全部入池（流水线兼容）
+                auto msg = codec.feed(buf[i]);
+                if (!msg) continue;
+                pool_.submit([this, conn, raw = std::move(*msg)] {
+                    Er7Parser p;
+                    Message m;
+                    auto framed_reply = [&](const Message& out) {
+                        if (out.segments.empty()) return;
+                        auto raw_out = p.encode(out);
+                        auto framed = MllpCodec{}.frame(raw_out);
+                        conn->transport->write(reinterpret_cast<const uint8_t*>(framed.data()),
+                                               framed.size());
+                    };
+                    try {
+                        m = p.parse(raw);
+                    } catch (const ParseError&) {
+                        // 解析失败：速扫第一行 MSH 凑包头回 NAK（对齐 HAPI getCriticalResponseData）
+                        auto cr = raw.find('\r');
+                        try {
+                            auto msh_only = p.parse(raw.substr(0, cr));
+                            framed_reply(build_ack(msh_only, AckCode::AE, "message parse error"));
+                        } catch (...) {}
+                        return;
+                    }
+                    MessageMeta meta{conn->ip, conn->port, Terser::get(m, "/MSH-10")};
+                    framed_reply(router_.dispatch(m, meta));
+                });
+            }
         } catch (const ProtocolError&) {
             break;                               // 帧违规：只关本连接
         }
-        if (!msg) continue;
-        pool_.submit([this, conn, raw = std::move(*msg)] {
-            Er7Parser p;
-            Message m;
-            auto framed_reply = [&](const Message& out) {
-                if (out.segments.empty()) return;
-                auto raw_out = p.encode(out);
-                auto framed = MllpCodec{}.frame(raw_out);
-                conn->transport->write(reinterpret_cast<const uint8_t*>(framed.data()),
-                                       framed.size());
-            };
-            try {
-                m = p.parse(raw);
-            } catch (const ParseError&) {
-                // 解析失败：速扫第一行 MSH 凑包头回 NAK（对齐 HAPI getCriticalResponseData）
-                auto cr = raw.find('\r');
-                try {
-                    auto msh_only = p.parse(raw.substr(0, cr));
-                    framed_reply(build_ack(msh_only, AckCode::AE, "message parse error"));
-                } catch (...) {}
-                return;
-            }
-            MessageMeta meta{conn->transport->remote_ip(), conn->transport->remote_port(),
-                             Terser::get(m, "/MSH-10")};
-            framed_reply(router_.dispatch(m, meta));
-        });
     }
-    const std::string ip = conn->transport->remote_ip();   // 先取再关（关闭后取为空串）
     conn->open = false;
     conn->transport->close();
-    if (conn_cb_) conn_cb_(ip, false);
+    if (conn_cb_) conn_cb_(conn->ip, false);     // accept 时快照的 ip
 }
 
 void LisServer::stop() {
