@@ -42,7 +42,7 @@ TEST(Terser, SetExistingAndNewField) {
     lis::Terser::set(m, "/PID-5-2", "San");
     ASSERT_EQ(lis::Terser::get(m, "/PID-5"), "Zhang^San");
     // set 按 1 基字段号补位空字段（PID-1..4 为空），HL7 正确编码是 5 个竖线，非 "PID|Zhang^San"
-    ASSERT_EQ(p.encode(m).find("PID|||||Zhang^San") != std::string::npos, true);
+    ASSERT_NE(p.encode(m).find("PID|||||Zhang^San"), std::string::npos);
 }
 
 TEST(Terser, GetMissingReturnsEmpty) {

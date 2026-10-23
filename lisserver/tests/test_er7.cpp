@@ -62,6 +62,7 @@ TEST(Er7, AcceptsCrLfBetweenSegments) {
     auto m = p.parse("MSH|^~\\&|A|B|C|D|||QRY^Q02|ID1|P|2.3\r\nPID|1||123\r\nOBR|1");
     ASSERT_EQ(lis::Terser::get(m, "/PID-3"), "123");
     ASSERT_EQ(lis::Terser::get(m, "/OBR-1"), "1");
+    ASSERT_EQ(p.encode(m).find("\r\n"), std::string::npos);   // CRLF 入 -> CR 出的归一化契约
 }
 
 TEST(Er7, EmptyFieldsKeepPosition) {
