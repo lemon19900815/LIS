@@ -142,7 +142,7 @@ int main() { return 0; }
 
 - [ ] **Step 4: 写 `tools\header_probe.vcxproj` 与仓库根 `.gitignore`**
 
-`tools\header_probe.vcxproj`（独立样板：v145 工具集、C++17、唯一 include 路径是 `..\lisserver\include`，**不导任何 conan props**）：
+`tools\header_probe.vcxproj`（独立样板：v145 工具集、C++17、唯一 include 路径是 `..\lisserver\include`，**不导任何 conan props**；`/utf-8` 必需——公共头含 UTF-8 中文注释，无它则 GBK 代码页解码会打碎 token 产生伪语法错误，红/绿证据被噪声污染）：
 
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
@@ -166,6 +166,7 @@ int main() { return 0; }
   <ItemDefinitionGroup>
     <ClCompile>
       <LanguageStandard>stdcpp17</LanguageStandard>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
       <AdditionalIncludeDirectories>$(MSBuildProjectDirectory)\..\lisserver\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
   </ItemDefinitionGroup>
