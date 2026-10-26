@@ -8,6 +8,7 @@
 #include <lis/terser.h>
 #include <cstdint>
 #include <cstdlib>
+#include <exception>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -34,7 +35,7 @@ int run_client(uint16_t port) {
         {"ORU^R01 BAR001",
          "MSH|^~\\&|I1000|I1000|LIS|LIS|20261026120004||ORU^R01|E4|P|2.3.1\r"
          "PID|1||P0001||TestPatient\r"
-         "OBR|1||BAR001\r"
+         "OBR|1|BAR001\r"
          "OBX|1|NM|GLU||5.5|mmol/L||N||F\r"
          "OBX|2|NM|ALT||32.0|U/L||N||F"},
     };
