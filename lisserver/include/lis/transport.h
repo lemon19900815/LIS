@@ -7,6 +7,8 @@
 
 namespace lis {
 
+// 传输抽象。线程契约：read 与 write 可跨线程并发（write 内部串行化）；
+// close 可从另一线程调用，须打断该 transport 上阻塞中的 read；析构前须保证无在途调用。
 class ITransport {
 public:
     virtual ~ITransport() = default;

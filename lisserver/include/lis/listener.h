@@ -15,7 +15,7 @@ struct Accepted {
     uint16_t remote_port = 0;
 };
 
-// 服务端监听抽象：accept 阻塞至超时或出错（均返回 nullopt，不可区分）或新连接
+// 服务端监听抽象：accept 阻塞至超时或出错（均返回 nullopt，不可区分）或新连接；accept 不可并发调用
 class IListener {
 public:
     virtual ~IListener() = default;

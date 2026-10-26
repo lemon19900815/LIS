@@ -75,7 +75,7 @@ struct Accepted {
     uint16_t remote_port = 0;
 };
 
-// 服务端监听抽象：accept 阻塞至超时或出错（均返回 nullopt，不可区分）或新连接
+// 服务端监听抽象：accept 阻塞至超时或出错（均返回 nullopt，不可区分）或新连接；accept 不可并发调用
 class IListener {
 public:
     virtual ~IListener() = default;
@@ -102,6 +102,8 @@ std::unique_ptr<IListener> make_tcp_listener();
 
 namespace lis {
 
+// 传输抽象。线程契约：read 与 write 可跨线程并发（write 内部串行化）；
+// close 可从另一线程调用，须打断该 transport 上阻塞中的 read；析构前须保证无在途调用。
 class ITransport {
 public:
     virtual ~ITransport() = default;
@@ -479,7 +481,7 @@ public:
 
     void start();
     void stop();
-    uint16_t local_port() const;
+    uint16_t local_port() const;   // 须与 start()/stop() 同线程调用（本类不保证并发安全）
     // 连接回调：在 acceptor 与各 reader 线程并发调用，回调自身须线程安全；
     // 不得在回调内调用 start()/stop()（reader 线程内 stop 会自 join 死锁）；
     // 须在 start() 前设置（此后对 conn_cb_ 的读写无锁）。
@@ -1079,7 +1081,7 @@ Expected: `已成功生成`、0 错误。
 git diff 3b9f102 -- lisserver/include/lis/lis_server.h lisserver/include/lis/lis_client.h
 ```
 
-Expected: 差异**只**出现在——include 行（tcp_transport.h → listener.h / transport.h）、私有区成员类型（`TcpTransport listener_` → `std::unique_ptr<IListener> listener_`、`Connection::transport` → `std::unique_ptr<ITransport>`、`TcpTransport transport_` → `std::shared_ptr<ITransport> transport_`）与对应注释；`public:` 区（构造/析构/删拷贝/start/stop/local_port/set_conn_listener/send_and_receive/connected/report_async/Config/别名）逐字节一致。发现任何公共区 diff 即回退修正。
+Expected: 差异**只**出现在——include 行（tcp_transport.h → listener.h / transport.h）、私有区成员类型（`TcpTransport listener_` → `std::unique_ptr<IListener> listener_`、`Connection::transport` → `std::unique_ptr<ITransport>`、`TcpTransport transport_` → `std::shared_ptr<ITransport> transport_`）与对应注释、公共区 `local_port()` 新增的一行并发契约注释；`public:` 区其余声明（构造/析构/删拷贝/start/stop/local_port/set_conn_listener/send_and_receive/connected/report_async/Config/别名）签名与注释逐字节一致。发现任何其他公共区 diff 即回退修正。
 
 - [ ] **Step 9: 设计文档 v0.3 增补**——编辑 `docs\2026-10-23-transport-abstraction-design.md`：第 4 行"状态"改为：
 

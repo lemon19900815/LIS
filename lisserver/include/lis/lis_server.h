@@ -28,7 +28,7 @@ public:
 
     void start();
     void stop();
-    uint16_t local_port() const;
+    uint16_t local_port() const;   // 须与 start()/stop() 同线程调用（本类不保证并发安全）
     // 连接回调：在 acceptor 与各 reader 线程并发调用，回调自身须线程安全；
     // 不得在回调内调用 start()/stop()（reader 线程内 stop 会自 join 死锁）；
     // 须在 start() 前设置（此后对 conn_cb_ 的读写无锁）。

@@ -78,7 +78,7 @@ std::unique_ptr<ITransport> make_tcp_client();   // 定义在库内
 
 - `lis_server.h`：去掉 `#include <lis/tcp_transport.h>`，改 include `listener.h`；`TcpTransport listener_` → `std::unique_ptr<IListener> listener_`（构造时 `make_tcp_listener()`）；`Connection::transport` → `std::unique_ptr<ITransport>`；`accept_loop` 从 `Accepted` 取 transport 与 ip/port 快照；`local_port()` 走 `listener_->local_port()`。生命周期不变量保持：connections_（借用 listener 持有的 io_context）先于 listener_ 析构
 - `lis_client.h`：去掉 `#include <lis/tcp_transport.h>`，改 include `transport.h`；`TcpTransport transport_` → `std::unique_ptr<ITransport> transport_`（`ensure_connected` 里 `make_tcp_client()` 重建）
-- `lis_server.cpp`/`lis_client.cpp` 内部 include `tcp_transport.h`——asio 从此不出现在公共 include 图
+- `lis_server.cpp`/`lis_client.cpp` 不再 include `tcp_transport.h`（两个工厂的声明已在抽象头）——asio 从此不出现在公共 include 图
 
 ### 3.4 边界规则（写入设计文档 v0.3）
 
