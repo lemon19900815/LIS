@@ -17,24 +17,25 @@ LisServer::~LisServer() { stop(); }
 
 void LisServer::start() {
     if (acceptor_.joinable()) throw std::runtime_error("LisServer already started");
-    if (!listener_.listen(cfg_.port))
+    listener_ = make_tcp_listener();             // 每次启动用全新监听器；stop() 末尾销毁以释放端口
+    if (!listener_->listen(cfg_.port))
         throw std::runtime_error("listen failed on port " + std::to_string(cfg_.port));
     stopping_ = false;
     acceptor_ = std::thread([this] { accept_loop(); });
 }
 
-uint16_t LisServer::local_port() const { return listener_.local_port(); }
+uint16_t LisServer::local_port() const { return listener_ ? listener_->local_port() : 0; }
 
 void LisServer::set_conn_listener(ConnListener cb) { conn_cb_ = std::move(cb); }
 
 void LisServer::accept_loop() {
     while (!stopping_.load()) {
-        auto t = listener_.accept(500);          // 500ms 轮询式 accept，给停止标志让路
-        if (!t) continue;
+        auto acc = listener_->accept(500);         // 500ms 轮询式 accept，给停止标志让路
+        if (!acc) continue;
         auto conn = std::make_shared<Connection>();
-        conn->ip = t->remote_ip();                 // accept 时快照（transport 关闭后仍可用）
-        conn->port = t->remote_port();
-        conn->transport = std::move(t);
+        conn->ip = acc->remote_ip;                 // accept 时快照（transport 关闭后仍可用）
+        conn->port = acc->remote_port;
+        conn->transport = std::move(acc->transport);
         conn->open = true;
         {
             std::lock_guard<std::mutex> lk(conn_mu_);
@@ -102,8 +103,7 @@ void LisServer::read_loop(std::shared_ptr<Connection> conn) {
 
 void LisServer::stop() {
     if (stopping_.exchange(true)) return;
-    listener_.close();                           // 让 accept 立即出错退出
-    if (acceptor_.joinable()) acceptor_.join();
+    if (acceptor_.joinable()) acceptor_.join();    // accept 走 ≤500ms 轮询超时后见 stopping_ 退出
     {
         std::lock_guard<std::mutex> lk(conn_mu_);
         for (auto& c : connections_) {
@@ -117,7 +117,8 @@ void LisServer::stop() {
             if (c->reader.joinable()) c->reader.join();
         connections_.clear();
     }
-    pool_.stop();
+    pool_.stop();                                  // 业务任务全部落地（framed_reply 闭包随之析构）
+    listener_.reset();                             // 此刻无借用 io_ 的连接存活，销毁监听器释放端口
 }
 
 }  // namespace lis

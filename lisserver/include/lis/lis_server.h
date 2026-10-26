@@ -1,7 +1,7 @@
 // include/lis/lis_server.h
 #pragma once
 #include <lis/router.h>
-#include <lis/tcp_transport.h>
+#include <lis/listener.h>
 #include <lis/thread_pool.h>
 #include <atomic>
 #include <functional>
@@ -14,7 +14,7 @@ namespace lis {
 
 // HL7 v2.x over MLLP 服务器：1 accept 线程 + 每连接 1 读线程 + 有界业务线程池。
 // Router 全连接共享；帧违规/IO 错误只关闭当前连接。
-// 生命周期不变量：connections_（借用 listener_ 的 io_context）必须声明在 listener_ 之后
+// 生命周期不变量：connections_（借用 listener_ 持有的 io_context）必须声明在 listener_ 之后
 // （先析构）；pool_ 停止必须先于成员析构（~LisServer 经 stop() 保证）。
 class LisServer {
 public:
@@ -36,7 +36,7 @@ public:
 
 private:
     struct Connection {
-        std::unique_ptr<TcpTransport> transport;
+        std::unique_ptr<ITransport> transport;
         std::thread reader;
         std::atomic<bool> open{false};
         std::string ip;          // accept 时快照（transport 关闭后仍可用）
@@ -49,7 +49,7 @@ private:
     Router router_;
     // 同一连接多帧并发处理，回复到达顺序不保证（客户端须按 MSA-2 配对）
     ThreadPool pool_;
-    TcpTransport listener_;
+    std::unique_ptr<IListener> listener_;   // start() 创建、stop() 末尾销毁（释放端口）
     std::thread acceptor_;
     std::vector<std::shared_ptr<Connection>> connections_;
     std::mutex conn_mu_;
