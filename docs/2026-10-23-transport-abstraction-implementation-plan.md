@@ -258,6 +258,7 @@ TEST(Listener, AcceptedCarriesRemoteEndpoint) {
     ASSERT_TRUE(accepted.has_value());
     ASSERT_EQ(accepted->remote_ip, "127.0.0.1");
     ASSERT_GT(accepted->remote_port, 0u);
+    ASSERT_NE(accepted->remote_port, port);            // 必须是对端临时端口，而非监听端口
     ASSERT_NE(accepted->transport, nullptr);
 
     ASSERT_TRUE(accepted->transport->write(reinterpret_cast<const uint8_t*>("hi"), 2));
@@ -382,12 +383,14 @@ std::optional<Accepted> TcpListener::accept(int timeout_ms) {
     io_.restart();
     io_.run_for(std::chrono::milliseconds(timeout_ms));
     if (!done) {
-        acceptor_->cancel();
+        // 超时：取消挂起的 accept 并消费其 handler。若连接恰在超时边界完成，
+        // handler 会以成功状态执行，仍取用该连接，避免静默丢弃对端已建立的连接。
+        std::error_code cancel_ec;
+        acceptor_->cancel(cancel_ec);
         io_.restart();
-        io_.run();          // 消费被取消的 accept handler，避免下一轮 run 悬垂
-        return std::nullopt;
+        io_.run();
     }
-    if (ec) return std::nullopt;
+    if (!done || ec) return std::nullopt;
     std::error_code opt_ec;
     t->socket_.set_option(asio::ip::tcp::no_delay(true), opt_ec);
     Accepted a;
@@ -895,6 +898,7 @@ TEST(Listener, AcceptedCarriesRemoteEndpoint) {
     ASSERT_TRUE(accepted.has_value());
     ASSERT_EQ(accepted->remote_ip, "127.0.0.1");
     ASSERT_GT(accepted->remote_port, 0u);
+    ASSERT_NE(accepted->remote_port, port);            // 必须是对端临时端口，而非监听端口
     ASSERT_NE(accepted->transport, nullptr);
 
     ASSERT_TRUE(accepted->transport->write(reinterpret_cast<const uint8_t*>("hi"), 2));

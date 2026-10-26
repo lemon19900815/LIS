@@ -147,6 +147,7 @@ TEST(Listener, AcceptedCarriesRemoteEndpoint) {
     ASSERT_TRUE(accepted.has_value());
     ASSERT_EQ(accepted->remote_ip, "127.0.0.1");
     ASSERT_GT(accepted->remote_port, 0u);
+    ASSERT_NE(accepted->remote_port, port);            // 必须是对端临时端口，而非监听端口
     ASSERT_NE(accepted->transport, nullptr);
 
     ASSERT_TRUE(accepted->transport->write(reinterpret_cast<const uint8_t*>("hi"), 2));
