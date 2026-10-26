@@ -4,7 +4,6 @@
 #include <lis/transport.h>
 #include <asio.hpp>
 #include <cstdint>
-#include <memory>
 #include <mutex>
 #include <optional>
 #include <string>
@@ -41,7 +40,7 @@ private:
 };
 
 // 专职监听端：持有 io_context 与 acceptor；accept 出的 TcpTransport 借用本对象 io_。
-// 线程契约：析构前须保证被接受的连接已全部销毁（LisServer 的成员顺序不变量保证）。
+// 线程契约：析构前须保证被接受的连接已全部销毁（LisServer::stop() 在末尾 reset 前已清空连接与线程池）。
 class TcpListener : public IListener {
 public:
     TcpListener();

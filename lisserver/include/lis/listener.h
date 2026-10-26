@@ -9,6 +9,7 @@
 namespace lis {
 
 struct Accepted {
+    // 借用产出它的 IListener 的执行上下文：连接须先于该 IListener 销毁（先析构 transport，后析构 listener）
     std::unique_ptr<ITransport> transport;
     std::string remote_ip;
     uint16_t remote_port = 0;

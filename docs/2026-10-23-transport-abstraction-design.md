@@ -2,6 +2,7 @@
 
 日期：2026-10-23
 状态：已与用户确认；2026-10-23 实施完成（v0.3 增补见 §6）
+来源：RisDebug"LIS服务器页面"接入讨论中立项，驱动来源见 RisDebug 仓库 `docs/superpowers/specs/2026-10-23-lis-server-page-design.md`
 前置：基于 main @ 940b667（10 任务全部完成、64 用例全绿）
 
 ## 1. 背景与问题

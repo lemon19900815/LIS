@@ -69,12 +69,13 @@
 namespace lis {
 
 struct Accepted {
+    // 借用产出它的 IListener 的执行上下文：连接须先于该 IListener 销毁（先析构 transport，后析构 listener）
     std::unique_ptr<ITransport> transport;
     std::string remote_ip;
     uint16_t remote_port = 0;
 };
 
-// 服务端监听抽象：accept 阻塞至超时（返回 nullopt）或新连接
+// 服务端监听抽象：accept 阻塞至超时或出错（均返回 nullopt，不可区分）或新连接
 class IListener {
 public:
     virtual ~IListener() = default;
@@ -285,7 +286,6 @@ Expected: lislib 编译通过；**listest 链接失败**：`error LNK2019: 无�
 #include <lis/transport.h>
 #include <asio.hpp>
 #include <cstdint>
-#include <memory>
 #include <mutex>
 #include <optional>
 #include <string>
@@ -326,7 +326,7 @@ private:
 };
 
 // 专职监听端：持有 io_context 与 acceptor；accept 出的 TcpTransport 借用本对象 io_。
-// 线程契约：析构前须保证被接受的连接已全部销毁（LisServer 的成员顺序不变量保证）。
+// 线程契约：析构前须保证被接受的连接已全部销毁（LisServer::stop() 在末尾 reset 前已清空连接与线程池）。
 class TcpListener : public IListener {
 public:
     TcpListener();
@@ -729,7 +729,6 @@ git commit -m "lisserver: LisClient 改依赖 ITransport 工厂——公共 incl
 #include <lis/transport.h>
 #include <asio.hpp>
 #include <cstdint>
-#include <memory>
 #include <mutex>
 #include <optional>
 #include <string>
@@ -766,7 +765,7 @@ private:
 };
 
 // 专职监听端：持有 io_context 与 acceptor；accept 出的 TcpTransport 借用本对象 io_。
-// 线程契约：析构前须保证被接受的连接已全部销毁（LisServer 的成员顺序不变量保证）。
+// 线程契约：析构前须保证被接受的连接已全部销毁（LisServer::stop() 在末尾 reset 前已清空连接与线程池）。
 class TcpListener : public IListener {
 public:
     TcpListener();
@@ -1085,7 +1084,10 @@ Expected: 差异**只**出现在——include 行（tcp_transport.h → listener
 
 ```
 状态：已与用户确认；2026-10-23 实施完成（v0.3 增补见 §6）
+来源：RisDebug"LIS服务器页面"接入讨论中立项，驱动来源见 RisDebug 仓库 `docs/superpowers/specs/2026-10-23-lis-server-page-design.md`
 ```
+
+（"来源"行保留原状态行中的立项出处，避免实施后丢失来源信息。）
 
 文件末尾追加：
 
