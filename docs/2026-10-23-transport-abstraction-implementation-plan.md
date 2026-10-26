@@ -286,6 +286,7 @@ Expected: lislib 编译通过；**listest 链接失败**：`error LNK2019: 无�
 #include <lis/transport.h>
 #include <asio.hpp>
 #include <cstdint>
+#include <memory>
 #include <mutex>
 #include <optional>
 #include <string>
