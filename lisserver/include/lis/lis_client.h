@@ -1,7 +1,7 @@
 // include/lis/lis_client.h
 #pragma once
 #include <lis/message.h>
-#include <lis/tcp_transport.h>
+#include <lis/transport.h>
 #include <lis/thread_pool.h>
 #include <atomic>
 #include <functional>
@@ -46,7 +46,7 @@ private:
     void read_loop();
 
     Config cfg_;
-    TcpTransport transport_;
+    std::unique_ptr<ITransport> transport_;   // ensure_connected() 时经 make_tcp_client() 重建
     std::thread reader_;
     std::atomic<bool> connected_{false};
     std::atomic<bool> stopping_{false};

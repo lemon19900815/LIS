@@ -37,10 +37,10 @@ LisClient::~LisClient() { stopping_ = true; disconnect(); pool_.stop(); }
 void LisClient::ensure_connected() {
     std::lock_guard<std::mutex> lk(connect_mu_);
     if (connected_.load() || stopping_.load()) return;
-    transport_.close();
-    if (!transport_.connect(cfg_.host, cfg_.port, cfg_.timeout_ms))
+    if (reader_.joinable()) reader_.join();          // 旧 reader 已退出（connected_==false 的前提），先收尸再换传输
+    transport_ = make_tcp_client();                  // 每次连接用全新传输对象（旧对象随赋值析构）
+    if (!transport_->connect(cfg_.host, cfg_.port, cfg_.timeout_ms))
         throw LisIoError("connect failed: " + cfg_.host + ":" + std::to_string(cfg_.port));
-    if (reader_.joinable()) reader_.join();          // 旧 reader 已退出（connected_==false 的前提），先收尸再替换
     connected_ = true;
     reader_ = std::thread([this] { read_loop(); });
 }
@@ -48,7 +48,7 @@ void LisClient::ensure_connected() {
 void LisClient::disconnect() {
     std::lock_guard<std::mutex> lk(connect_mu_);
     connected_ = false;
-    transport_.close();
+    if (transport_) transport_->close();             // 打断阻塞读；对象存活到 ensure_connected 收尸后重建
     if (reader_.joinable() && reader_.get_id() != std::this_thread::get_id()) reader_.join();
     std::lock_guard<std::mutex> pl(pending_mu_);
     for (auto& [k, p] : pending_)
@@ -77,7 +77,7 @@ Message LisClient::send_and_receive(const Message& out) {
             if (!inserted)
                 throw LisIoError("MSH-10 already in flight: " + control_id);
         }
-        if (!transport_.write(reinterpret_cast<const uint8_t*>(framed.data()), framed.size())) {
+        if (!transport_->write(reinterpret_cast<const uint8_t*>(framed.data()), framed.size())) {
             disconnect();                              // IO 失败：丢弃连接，进入重试
             continue;
         }
@@ -111,7 +111,7 @@ void LisClient::read_loop() {
     MllpCodec codec;
     uint8_t buf[4096];
     while (connected_.load() && !stopping_.load()) {
-        int n = transport_.read(buf, sizeof buf, cfg_.read_timeout_ms);
+        int n = transport_->read(buf, sizeof buf, cfg_.read_timeout_ms);
         if (n == 0) continue;                          // socket 读超时：继续轮询
         if (n < 0) break;                              // 对端断开/IO 错误
         try {
