@@ -35,42 +35,6 @@ bool TcpTransport::connect(const std::string& host, uint16_t port, int timeout_m
     return true;
 }
 
-bool TcpTransport::listen(uint16_t port) {
-    close();
-    std::error_code ec;
-    asio::ip::tcp::endpoint ep(asio::ip::tcp::v4(), port);
-    acceptor_.emplace(io_);
-    acceptor_->open(ep.protocol(), ec);
-    if (!ec) acceptor_->set_option(asio::ip::tcp::acceptor::reuse_address(true), ec);
-    if (!ec) acceptor_->bind(ep, ec);
-    if (!ec) acceptor_->listen(asio::socket_base::max_listen_connections, ec);
-    if (ec) {
-        acceptor_.reset();
-        return false;
-    }
-    return true;
-}
-
-std::unique_ptr<TcpTransport> TcpTransport::accept(int timeout_ms) {
-    if (!acceptor_) return nullptr;
-    std::unique_ptr<TcpTransport> t(new TcpTransport(io_));
-    bool done = false;
-    std::error_code ec;
-    acceptor_->async_accept(t->socket_, [&](std::error_code e) { ec = e; done = true; });
-    io_.restart();
-    io_.run_for(std::chrono::milliseconds(timeout_ms));
-    if (!done) {
-        acceptor_->cancel();
-        io_.restart();
-        io_.run();          // 消费被取消的 accept handler，避免下一轮 run 悬垂
-        return nullptr;
-    }
-    if (ec) return nullptr;
-    std::error_code opt_ec;
-    t->socket_.set_option(asio::ip::tcp::no_delay(true), opt_ec);
-    return t;
-}
-
 int TcpTransport::read(uint8_t* buf, size_t n, int timeout_ms) {
     if (!socket_.is_open()) return -1;
     DWORD ms = timeout_ms > 0 ? static_cast<DWORD>(timeout_ms) : 0;
@@ -98,13 +62,6 @@ void TcpTransport::close() {
         socket_.shutdown(asio::ip::tcp::socket::shutdown_both, ec);   // 规范打断阻塞读
         socket_.close(ec);
     }
-    if (acceptor_ && acceptor_->is_open()) acceptor_->close(ec);
-}
-
-uint16_t TcpTransport::local_port() const {
-    std::error_code ec;
-    if (acceptor_) return acceptor_->local_endpoint(ec).port();
-    return socket_.local_endpoint(ec).port();
 }
 
 std::string TcpTransport::remote_ip() const {

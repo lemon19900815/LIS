@@ -4,7 +4,8 @@
 #include <lis/er7_parser.h>
 #include <lis/lis_client.h>
 #include <lis/lis_server.h>
-#include <lis/tcp_transport.h>
+#include <lis/listener.h>
+#include <lis/transport.h>
 #include <lis/terser.h>
 #include <atomic>
 #include <chrono>
@@ -42,15 +43,17 @@ TEST(Client, QueryAckRoundTrip) {
 }
 
 TEST(Client, TimeoutThrowsAfterRetries) {
-    lis::TcpTransport listener;
-    ASSERT_TRUE(listener.listen(0));
-    const auto port = listener.local_port();
-    std::thread t([&] { auto peer = listener.accept(3000); if (peer) std::this_thread::sleep_for(std::chrono::seconds(2)); });
+    auto listener = lis::make_tcp_listener();
+    ASSERT_TRUE(listener->listen(0));
+    const auto port = listener->local_port();
+    std::thread t([&] {
+        auto peer = listener->accept(3000);
+        if (peer) std::this_thread::sleep_for(std::chrono::seconds(2));
+    });
     lis::LisClient client({"127.0.0.1", port, 400, 1});     // 1 次重试
     lis::Er7Parser p;
     ASSERT_THROW(client.send_and_receive(p.parse(kQry)), lis::LisTimeoutError);
     t.join();
-    listener.close();
 }
 
 TEST(Client, RetryAfterReconnect) {
@@ -99,14 +102,14 @@ TEST(Client, ConcurrentRoundTrip) {
 
 // I-1：并发在途时任一方超时断开，"连接丢失"不得直抛给另一方——须同样走重试直到超时
 TEST(Client, ConcurrentTimeoutAllRetryToTimeout) {
-    lis::TcpTransport listener;                              // 永不应答对端：接受连接但既不回应也不关闭
-    ASSERT_TRUE(listener.listen(0));
-    const auto port = listener.local_port();
+    auto listener = lis::make_tcp_listener();               // 永不应答对端：接受连接但既不回应也不关闭
+    ASSERT_TRUE(listener->listen(0));
+    const auto port = listener->local_port();
     std::atomic<bool> running{true};
-    std::vector<std::unique_ptr<lis::TcpTransport>> peers;
+    std::vector<std::unique_ptr<lis::ITransport>> peers;
     std::thread acceptor([&] {
         while (running.load())
-            if (auto peer = listener.accept(200)) peers.push_back(std::move(peer));
+            if (auto peer = listener->accept(200)) peers.push_back(std::move(peer->transport));
     });
     lis::LisClient client({"127.0.0.1", port, 400, 2});      // 2 次重试
     auto send = [](lis::LisClient& c, const char* qry, std::promise<std::string>& done) {
@@ -128,18 +131,17 @@ TEST(Client, ConcurrentTimeoutAllRetryToTimeout) {
     running = false;
     acceptor.join();
     for (auto& peer : peers) peer->close();
-    listener.close();
     ASSERT_EQ(fa.get(), "timeout");
     ASSERT_EQ(fb.get(), "timeout");
 }
 
 // I-2：并发复用在途 MSH-10 须立即响亮拒绝（不发送、不烧满超时）
 TEST(Client, DuplicateControlIdRejected) {
-    lis::TcpTransport listener;
-    ASSERT_TRUE(listener.listen(0));
-    const auto port = listener.local_port();
+    auto listener = lis::make_tcp_listener();
+    ASSERT_TRUE(listener->listen(0));
+    const auto port = listener->local_port();
     std::thread holder([&] {                                 // 单次 accept 持有即足：被拒方不建新连接
-        if (auto peer = listener.accept(3000))
+        if (auto peer = listener->accept(3000))
             std::this_thread::sleep_for(std::chrono::seconds(2));
     });
     lis::LisClient client({"127.0.0.1", port, 2000, 0});     // 0 次重试
@@ -156,7 +158,6 @@ TEST(Client, DuplicateControlIdRejected) {
     EXPECT_LT(elapsed, 1000);                              // 立即拒绝而非等待整个超时
     bg.join();
     holder.join();
-    listener.close();
 }
 
 // report_async：成功回调 ok=true；连接不可达回调 ok=false（均等回调完成后再析构 client）
@@ -176,10 +177,10 @@ TEST(Client, ReportAsyncCallbacks) {
         server->stop();
     }
     {
-        lis::TcpTransport t;                                 // 拿一个刚关闭的端口：连接必失败
-        ASSERT_TRUE(t.listen(0));
-        const auto dead_port = t.local_port();
-        t.close();
+        auto t = lis::make_tcp_listener();                 // 拿一个刚关闭的端口：连接必失败
+        ASSERT_TRUE(t->listen(0));
+        const auto dead_port = t->local_port();
+        t.reset();                                          // 销毁监听器 = 释放端口
         lis::LisClient client({"127.0.0.1", dead_port, 500, 1});
         lis::Er7Parser p;
         std::promise<std::pair<std::string, bool>> done;

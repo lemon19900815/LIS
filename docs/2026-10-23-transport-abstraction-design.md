@@ -1,7 +1,7 @@
 # lislib 传输层抽象收口设计
 
 日期：2026-10-23
-状态：已与用户确认（RisDebug"LIS服务器页面"接入讨论中立项，驱动来源见 RisDebug 仓库 `docs/superpowers/specs/2026-10-23-lis-server-page-design.md`）
+状态：已与用户确认；2026-10-23 实施完成（v0.3 增补见 §6）
 前置：基于 main @ 940b667（10 任务全部完成、64 用例全绿）
 
 ## 1. 背景与问题
@@ -103,3 +103,13 @@ std::unique_ptr<ITransport> make_tcp_client();   // 定义在库内
 | 监听能力抽象形状 | 拆 TcpListener（监听与连接分职） | TcpTransport 同时实现 ITransport+IListener（改动面小但接口胖、被接受连接对象暴露 listen/accept） |
 | 传输实现注入接口 | 不做（工厂函数即可，测试用真实 TCP 回环） | Config 注入自定义 ITransport 工厂（YAGNI） |
 | API 兼容 | 公共签名不变 | 顺势改 API（会破坏 demo/测试/接入方） |
+
+## 6. v0.3 增补（实施固化）
+
+**边界规则：lislib 公共头不得引入 asio 或任何传输实现头。** `tcp_transport.h` 为库内实现头（接入方不直接包含），传输一律经 `ITransport`/`IListener` 与 `make_tcp_client()`/`make_tcp_listener()` 工厂消费。
+
+守护机制：仓库根 `tools/header_probe.vcxproj` + `tools/header_probe.cpp`——包含全部公共头（不含 `tcp_transport.h`）；该工程位于 `lisserver\Directory.Build.props` 作用域之外（不获 conan asio 注入），仅以 `-I lisserver\include` 编译，能编过即边界未破。
+
+实施与 §3.3 的一处简化：`lis_server.cpp`/`lis_client.cpp` 最终**不**需要 include `tcp_transport.h`——两个工厂的声明就在抽象头里，具体类型只在 `tcp_transport.cpp` 内出现。
+
+实施与 §3.1 的一处接口内行为：`IListener` 无 `close()`；`LisServer::stop()` 末尾 `listener_.reset()` 释放监听端口（此刻借用 io_ 的连接已全部析构），accept 线程经 ≤500ms 轮询超时退出。
