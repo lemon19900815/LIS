@@ -1,5 +1,6 @@
 // tests/test_transport.cpp
 #include <gtest/gtest.h>
+#include <lis/listener.h>
 #include <lis/tcp_transport.h>
 #include <lis/thread_pool.h>
 #include <atomic>
@@ -121,4 +122,35 @@ TEST(Transport, CloseUnblocksBlockedRead) {
         std::chrono::steady_clock::now() - start).count();
     ASSERT_LT(elapsed, 5000);                               // 远未到 10s 即返回
     ASSERT_EQ(read_result.load(), -1);
+}
+
+// 超时后重挂无残留 handler，仍能接受真连接（对齐旧 Transport.AcceptTimeoutRearms 的守护点）
+TEST(Listener, AcceptTimeoutRearms) {
+    auto listener = lis::make_tcp_listener();
+    ASSERT_TRUE(listener->listen(0));
+    ASSERT_FALSE(listener->accept(200).has_value());   // 第一次超时
+    ASSERT_FALSE(listener->accept(200).has_value());   // 第二次超时（重挂无残留 handler）
+    lis::TcpTransport client;                          // 超时后仍能接受真连接
+    ASSERT_TRUE(client.connect("127.0.0.1", listener->local_port(), 2000));
+    ASSERT_TRUE(listener->accept(2000).has_value());
+}
+
+TEST(Listener, AcceptedCarriesRemoteEndpoint) {
+    auto listener = lis::make_tcp_listener();
+    ASSERT_TRUE(listener->listen(0));
+    const auto port = listener->local_port();
+    ASSERT_NE(port, 0u);
+
+    lis::TcpTransport client;
+    ASSERT_TRUE(client.connect("127.0.0.1", port, 2000));
+    auto accepted = listener->accept(2000);
+    ASSERT_TRUE(accepted.has_value());
+    ASSERT_EQ(accepted->remote_ip, "127.0.0.1");
+    ASSERT_GT(accepted->remote_port, 0u);
+    ASSERT_NE(accepted->transport, nullptr);
+
+    ASSERT_TRUE(accepted->transport->write(reinterpret_cast<const uint8_t*>("hi"), 2));
+    uint8_t buf[8]{};
+    ASSERT_EQ(client.read(buf, sizeof buf, 2000), 2);   // Accepted.transport 可正常收发
+    ASSERT_EQ(std::string(reinterpret_cast<char*>(buf), 2), "hi");
 }
