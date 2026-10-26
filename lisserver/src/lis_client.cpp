@@ -77,7 +77,13 @@ Message LisClient::send_and_receive(const Message& out) {
             if (!inserted)
                 throw LisIoError("MSH-10 already in flight: " + control_id);
         }
-        if (!transport_->write(reinterpret_cast<const uint8_t*>(framed.data()), framed.size())) {
+        std::shared_ptr<ITransport> transport;
+        {
+            std::lock_guard<std::mutex> lk(connect_mu_);
+            transport = transport_;                    // 快照保活：他方超时重连销毁旧传输时本调用仍安全
+        }
+        if (!transport) throw LisIoError("client not connected");
+        if (!transport->write(reinterpret_cast<const uint8_t*>(framed.data()), framed.size())) {
             disconnect();                              // IO 失败：丢弃连接，进入重试
             continue;
         }

@@ -46,7 +46,7 @@ private:
     void read_loop();
 
     Config cfg_;
-    std::unique_ptr<ITransport> transport_;   // ensure_connected() 时经 make_tcp_client() 重建
+    std::shared_ptr<ITransport> transport_;   // ensure_connected() 时经 make_tcp_client() 重建；发送路径取快照保活
     std::thread reader_;
     std::atomic<bool> connected_{false};
     std::atomic<bool> stopping_{false};

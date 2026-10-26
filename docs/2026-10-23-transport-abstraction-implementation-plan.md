@@ -613,7 +613,7 @@ git commit -m "lisserver: LisServer 改依赖 IListener——端口释放改为 
 - Modify: `lisserver\include\lis\lis_client.h`
 - Modify: `lisserver\src\lis_client.cpp`
 
-**线程安全要点**（实现里已体现，理解后照抄）：`transport_` 的**替换**只发生在 `ensure_connected()`，且替换前已 join 旧 reader（旧 reader 退出是 `connected_==false` 的前提），因此任何 reader 不会看到换对象；`disconnect()` 只 `close()` 不销毁对象——销毁必须等 reader 收尸，否则 reader 在已析构对象上 read 是 UB。
+**线程安全要点**（实现里已体现，理解后照抄）：`transport_` 用 `std::shared_ptr<ITransport>`，**替换**只发生在 `ensure_connected()`，且替换前已 join 旧 reader（旧 reader 退出是 `connected_==false` 的前提），因此任何 reader 不会看到换对象；`disconnect()` 只 `close()` 不销毁对象——销毁必须等 reader 收尸，否则 reader 在已析构对象上 read 是 UB。发送路径不持 `connect_mu_`，故写帧前在 `connect_mu_` 下取一次 `shared_ptr` 快照：他方超时重连替换成员时，旧对象延迟到本调用结束才析构（值成员时代的地址稳定性由快照恢复）。
 
 - [ ] **Step 1: 改 `lisserver\include\lis\lis_client.h`**——两处：include 行换掉 tcp_transport.h、成员 `transport_` 换类型（公共区一字不动）：
 
@@ -638,10 +638,27 @@ git commit -m "lisserver: LisServer 改依赖 IListener——端口释放改为 
 
 ```cpp
     Config cfg_;
-    std::unique_ptr<ITransport> transport_;   // ensure_connected() 时经 make_tcp_client() 重建
+    std::shared_ptr<ITransport> transport_;   // ensure_connected() 时经 make_tcp_client() 重建；发送路径取快照保活
 ```
 
-- [ ] **Step 2: 改 `lisserver\src\lis_client.cpp`**——四处（本文件同样**不需要** include tcp_transport.h，工厂声明在 transport.h；`send_and_receive` 只改第 80 行的 `transport_.write` → `transport_->write`，`read_loop` 只改第 114 行的 `transport_.read` → `transport_->read`，其余不动）：
+- [ ] **Step 2: 改 `lisserver\src\lis_client.cpp`**——本文件同样**不需要** include tcp_transport.h，工厂声明在 transport.h；`ensure_connected`/`disconnect` 整段替换如下；`send_and_receive` 将原第 80 行的 `transport_.write` 改为下面的快照写法（其余不动）；`read_loop` 只改第 114 行的 `transport_.read` → `transport_->read`。
+
+`send_and_receive` 中登记 pending 之后的发送段改为：
+
+```cpp
+        std::shared_ptr<ITransport> transport;
+        {
+            std::lock_guard<std::mutex> lk(connect_mu_);
+            transport = transport_;                    // 快照保活：他方超时重连销毁旧传输时本调用仍安全
+        }
+        if (!transport) throw LisIoError("client not connected");
+        if (!transport->write(reinterpret_cast<const uint8_t*>(framed.data()), framed.size())) {
+            disconnect();                              // IO 失败：丢弃连接，进入重试
+            continue;
+        }
+```
+
+`ensure_connected` 与 `disconnect`：
 
 ```cpp
 void LisClient::ensure_connected() {
@@ -1062,7 +1079,7 @@ Expected: `已成功生成`、0 错误。
 git diff 3b9f102 -- lisserver/include/lis/lis_server.h lisserver/include/lis/lis_client.h
 ```
 
-Expected: 差异**只**出现在——include 行（tcp_transport.h → listener.h / transport.h）、私有区成员类型（`TcpTransport listener_` → `std::unique_ptr<IListener> listener_`、`Connection::transport`、`TcpTransport transport_` → `std::unique_ptr<ITransport> transport_`）与对应注释；`public:` 区（构造/析构/删拷贝/start/stop/local_port/set_conn_listener/send_and_receive/connected/report_async/Config/别名）逐字节一致。发现任何公共区 diff 即回退修正。
+Expected: 差异**只**出现在——include 行（tcp_transport.h → listener.h / transport.h）、私有区成员类型（`TcpTransport listener_` → `std::unique_ptr<IListener> listener_`、`Connection::transport` → `std::unique_ptr<ITransport>`、`TcpTransport transport_` → `std::shared_ptr<ITransport> transport_`）与对应注释；`public:` 区（构造/析构/删拷贝/start/stop/local_port/set_conn_listener/send_and_receive/connected/report_async/Config/别名）逐字节一致。发现任何公共区 diff 即回退修正。
 
 - [ ] **Step 9: 设计文档 v0.3 增补**——编辑 `docs\2026-10-23-transport-abstraction-design.md`：第 4 行"状态"改为：
 
