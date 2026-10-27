@@ -85,8 +85,9 @@ Release 库在 `lib`，许可证在 `share/<包名>/copyright`。当前只 vendo
   定义 `ThirdPartyRoot = $(MSBuildThisFileDirectory)target\x64-windows\`，
   把 `$(ThirdPartyRoot)include` 加入 `AdditionalIncludeDirectories`。
 - `lisserver/gtest.props`（仅 `listest.vcxproj` 导入）：
-  Debug 用 `$(ThirdPartyRoot)debug\lib`、Release 用 `$(ThirdPartyRoot)lib` 作为
-  `AdditionalLibraryDirectories`，链接 `gtest.lib;gtest_main.lib`。
+  Debug 用 `$(MSBuildThisFileDirectory)target\x64-windows\debug\lib`、Release 用
+  `...\target\x64-windows\lib` 作为 `AdditionalLibraryDirectories`，链接
+  `gtest.lib;gtest_main.lib`；自带路径不依赖 `ThirdPartyRoot`，导入顺序无关。
 
 配套改动：
 
@@ -171,7 +172,9 @@ Release 库在 `lib`，许可证在 `share/<包名>/copyright`。当前只 vendo
 lis-server：
 
 1. `target` 布局完整（§4.1 的 8 项），且工程文件中无缓存绝对路径：
-   `git grep -n "\.conan2" -- lisserver tools` 无命中；`git grep -n "conandeps"` 无命中。
+   `git grep -I -n "\.conan2" -- lisserver tools` 无命中；`git grep -n "conandeps" -- lisserver tools` 无命中。
+   （`-I` 跳过二进制：vendored gtest 库的调试信息/`__FILE__` 断言串里带有 conan 构建路径，
+   不影响链接与运行，见 §8。）
 2. `build.bat` → `lib/x64/Debug-v143/liblis.lib|pdb` 与 `lib/x64/Release-v143/liblis.lib|pdb` 均存在。
 3. `build.bat -c Debug` / `-c Release` 单独执行均成功。
 4. `build.bat -t sln -c Debug` 成功；运行 `lisserver/listest/x64/Debug/listest.exe`，65 个用例全绿。
@@ -200,3 +203,5 @@ RisDebug：
 - `target/x64-windows` 入库约 17 MB；`lisserver/conan/` 下的旧生成文件不再被引用，可在本机删除
   （仓库本就不跟踪该目录）。
 - 改名只影响构建标识（文件/工程/产物名），不改任何符号名、命名空间或运行时行为，接入方只需改链接库名。
+- vendored gtest 二进制内嵌 conan 构建路径（调试信息与 gtest 断言消息里的 `C:\Users\<user>\.conan2\p\...`），
+  属构建产物自带信息；验收用 `git grep -I` 跳过二进制，如需彻底清除须自行用 `/pathmap` 重建 gtest。

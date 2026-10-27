@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- 边界守卫工程：必须留在仓库根 tools\（lisserver\Directory.Build.props 作用域之外），
-     且不得导入任何 conan props——否则 asio include 被注入，守卫静默失效（误绿）。 -->
+     且不得导入 third_party.props 或任何注入 asio include 的 props——否则守卫静默失效（误绿）。 -->
 <Project DefaultTargets="Build" ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|x64"><Configuration>Debug</Configuration><Platform>x64</Platform></ProjectConfiguration>

@@ -626,7 +626,7 @@ git commit -m "依赖：lislib 更名 liblis，同步 vendored 库与链接配�
 
 ```bash
 cd /d/workspace/components/lis-server
-git grep -n "\.conan2" -- lisserver tools ; echo "conan_path_exit=$?"      # 期望 1
+git grep -I -n "\.conan2" -- lisserver tools ; echo "conan_path_exit=$?"     # 期望 1（-I 跳过二进制：gtest 库内嵌构建路径）
 git grep -n "conandeps" -- lisserver tools ; echo "conandeps_exit=$?"      # 期望 1
 git grep -n lislib -- lisserver tools ; echo "lislib_exit=$?"              # 期望 1
 git status --short
