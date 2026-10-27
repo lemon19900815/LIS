@@ -1,4 +1,4 @@
-// include/lis/mllp_codec.h
+// src/mllp_codec.h —— 库内实现头，不对外暴露
 #pragma once
 #include <cstdint>
 #include <optional>

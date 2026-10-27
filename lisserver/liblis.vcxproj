@@ -23,6 +23,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="include\lis\*.h" />
+    <ClInclude Include="src\*.h" />
     <ClCompile Include="src\*.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

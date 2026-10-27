@@ -1,6 +1,6 @@
 // tests/test_mllp.cpp
 #include <gtest/gtest.h>
-#include <lis/mllp_codec.h>
+#include "mllp_codec.h"
 
 using lis::MllpCodec;
 

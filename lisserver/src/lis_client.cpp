@@ -1,7 +1,7 @@
 // src/lis_client.cpp
 #include <lis/lis_client.h>
 #include <lis/er7_parser.h>
-#include <lis/mllp_codec.h>
+#include "mllp_codec.h"
 #include <lis/terser.h>
 #include <atomic>
 #include <chrono>

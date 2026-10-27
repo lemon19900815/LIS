@@ -1,10 +1,10 @@
 // tests/test_server.cpp
 #include <gtest/gtest.h>
 #include <lis/lis_server.h>
-#include <lis/mllp_codec.h>
+#include "mllp_codec.h"
 #include <lis/er7_parser.h>
 #include <lis/ack_builder.h>
-#include <lis/tcp_transport.h>
+#include "tcp_transport.h"
 #include <algorithm>
 #include <atomic>
 #include <optional>

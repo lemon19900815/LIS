@@ -1,4 +1,4 @@
-// include/lis/tcp_transport.h
+// src/tcp_transport.h —— 库内实现头（含 asio），不对外暴露
 #pragma once
 #include <lis/listener.h>
 #include <lis/transport.h>

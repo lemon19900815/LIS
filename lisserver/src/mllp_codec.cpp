@@ -1,5 +1,5 @@
 // src/mllp_codec.cpp
-#include <lis/mllp_codec.h>
+#include "mllp_codec.h"
 
 namespace lis {
 
