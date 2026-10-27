@@ -10,8 +10,8 @@
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
 
-  <!-- conan MSBuildDeps 产物（路径相对本文件，勿直接 conan install . 到别的目录） -->
-  <Import Project="conan\conandeps.props" Condition="Exists('conan\conandeps.props')" />
+  <!-- vendored 第三方依赖（vcpkg 风格 target 树；路径相对本文件） -->
+  <Import Project="third_party.props" Condition="Exists('third_party.props')" />
 
   <!-- 中间目录约定（按工程名分目录，避免并行工程互踩）。
        用 $(MSBuildProjectName) 而非 $(ProjectName)：后者在 C++ 求值链中定义过晚，

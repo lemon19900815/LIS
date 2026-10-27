@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <!-- vendored 第三方依赖（vcpkg 风格 target 树）；路径全部相对本文件，不得引用 conan 缓存 -->
+  <PropertyGroup>
+    <ThirdPartyRoot>$(MSBuildThisFileDirectory)target\x64-windows\</ThirdPartyRoot>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(ThirdPartyRoot)include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+  </ItemDefinitionGroup>
+</Project>

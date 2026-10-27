@@ -1,8 +1,5 @@
-# Debug:   conan install . --output-folder=conan
-# Release: conan install . --output-folder=conan -s build_type=Release
+# 依赖已 vendor 到 target/x64-windows（vcpkg 风格布局）；本文件仅记录来源版本。
+# 日常构建不需要 conan；刷新流程见 docs/2026-10-26-liblis-v143-build.md。
 [requires]
 asio/1.30.2
 gtest/1.14.0
-
-[generators]
-MSBuildDeps
