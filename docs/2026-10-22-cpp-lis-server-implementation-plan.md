@@ -45,7 +45,7 @@ lisserver/
 │   ├── test_mllp.cpp  test_er7.cpp  test_terser.cpp
 │   ├── test_ack.cpp  test_router.cpp
 ├── demo/lis_demo.cpp                127.0.0.1 E2E 自测
-├── lislib.vcxproj                   静态库
+├── liblis.vcxproj                   静态库
 ├── listest.vcxproj                  gtest 测试 exe
 └── lisdemo.vcxproj                  demo exe
 ```
@@ -70,7 +70,7 @@ vcxproj 通过 `<Import Project="conan\conandeps.props" />` 引入 Conan 生成�
 **Files:**
 - Create: `lisserver/conanfile.txt`
 - Create: `lisserver/lisserver.sln`
-- Create: `lisserver/lislib.vcxproj`
+- Create: `lisserver/liblis.vcxproj`
 - Create: `lisserver/listest.vcxproj`
 - Create: `lisserver/lisdemo.vcxproj`
 - Create: `lisserver/tests/main.cpp`
@@ -92,7 +92,7 @@ MSBuildDeps
 Run: `cd lisserver && conan install . -g MSBuildDeps -s build_type=Debug -s arch=x86_64 --output-folder=conan`
 Expected: 生成 `conan/conandeps.props`、`conan/asio.props`、`conan/gtest*.props`，无报错。
 
-- [ ] **Step 3: lislib.vcxproj（静态库空壳）**
+- [ ] **Step 3: liblis.vcxproj（静态库空壳）**
 
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
@@ -121,7 +121,7 @@ Expected: 生成 `conan/conandeps.props`、`conan/asio.props`、`conan/gtest*.pr
 
 - [ ] **Step 4: listest.vcxproj（测试 exe）**
 
-同 lislib 骨架，差异项：`ProjectGuid {A1B2C3D4-0002-4000-8000-000000000002}`；`<ConfigurationType>Application</ConfigurationType>`；`OutDir` 为 `listest\$(Platform)\$(Configuration)\`；`ClCompile` 增加 `<AdditionalIncludeDirectories>include;tests;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>`；`Link` 节 `<AdditionalDependencies>lislib.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>` + `<AdditionalLibraryDirectories>lib\$(Platform)\$(Configuration);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>`；ItemGroup 为 `<ClCompile Include="tests\*.cpp" />`；**同样导入 conan props、定义 ASIO_STANDALONE**。
+同 liblis 骨架，差异项：`ProjectGuid {A1B2C3D4-0002-4000-8000-000000000002}`；`<ConfigurationType>Application</ConfigurationType>`；`OutDir` 为 `listest\$(Platform)\$(Configuration)\`；`ClCompile` 增加 `<AdditionalIncludeDirectories>include;tests;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>`；`Link` 节 `<AdditionalDependencies>liblis.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>` + `<AdditionalLibraryDirectories>lib\$(Platform)\$(Configuration);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>`；ItemGroup 为 `<ClCompile Include="tests\*.cpp" />`；**同样导入 conan props、定义 ASIO_STANDALONE**。
 
 - [ ] **Step 5: lisdemo.vcxproj（demo exe）**
 
@@ -132,7 +132,7 @@ Expected: 生成 `conan/conandeps.props`、`conan/asio.props`、`conan/gtest*.pr
 ```text
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "lislib", "lislib.vcxproj", "{A1B2C3D4-0001-4000-8000-000000000001}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "liblis", "liblis.vcxproj", "{A1B2C3D4-0001-4000-8000-000000000001}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "listest", "listest.vcxproj", "{A1B2C3D4-0002-4000-8000-000000000002}"
 	ProjectSection(ProjectDependencies) = postProject

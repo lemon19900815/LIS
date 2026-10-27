@@ -1,4 +1,4 @@
-# lislib 传输层抽象收口设计
+# liblis 传输层抽象收口设计
 
 日期：2026-10-23
 状态：已与用户确认；2026-10-23 实施完成（v0.3 增补见 §6）
@@ -7,7 +7,7 @@
 
 ## 1. 背景与问题
 
-lislib 公共头 `lis_server.h`、`lis_client.h` 直接 `#include <lis/tcp_transport.h>`（连带 `<asio.hpp>`），且按值持有具体 `TcpTransport`（`lis_server.h` 的 `listener_` 与 `Connection::transport`、`lis_client.h` 的 `transport_`）。后果：任何接入方只要包含 lislib 公共头，就必须在自己的工程里配 asio 头路径——传输实现（asio/TcpTransport）泄漏进了公共接口。
+liblis 公共头 `lis_server.h`、`lis_client.h` 直接 `#include <lis/tcp_transport.h>`（连带 `<asio.hpp>`），且按值持有具体 `TcpTransport`（`lis_server.h` 的 `listener_` 与 `Connection::transport`、`lis_client.h` 的 `transport_`）。后果：任何接入方只要包含 liblis 公共头，就必须在自己的工程里配 asio 头路径——传输实现（asio/TcpTransport）泄漏进了公共接口。
 
 `ITransport` 抽象（`transport.h`，纯标准库）已存在但未被 server/client 头用足：服务端还多用了三个 ITransport 没有的能力（`listen()`、`accept()`、`local_port()`），以及 Accepted 连接的 remote_ip/port 快照。
 
@@ -82,7 +82,7 @@ std::unique_ptr<ITransport> make_tcp_client();   // 定义在库内
 
 ### 3.4 边界规则（写入设计文档 v0.3）
 
-**lislib 公共头不得引入 asio 或任何传输实现头。**
+**liblis 公共头不得引入 asio 或任何传输实现头。**
 
 ### 3.5 验证
 
@@ -107,7 +107,7 @@ std::unique_ptr<ITransport> make_tcp_client();   // 定义在库内
 
 ## 6. v0.3 增补（实施固化）
 
-**边界规则：lislib 公共头不得引入 asio 或任何传输实现头。** `tcp_transport.h` 为库内实现头（接入方不直接包含），传输一律经 `ITransport`/`IListener` 与 `make_tcp_client()`/`make_tcp_listener()` 工厂消费。
+**边界规则：liblis 公共头不得引入 asio 或任何传输实现头。** `tcp_transport.h` 为库内实现头（接入方不直接包含），传输一律经 `ITransport`/`IListener` 与 `make_tcp_client()`/`make_tcp_listener()` 工厂消费。
 
 守护机制：仓库根 `tools/header_probe.vcxproj` + `tools/header_probe.cpp`——包含全部公共头（不含 `tcp_transport.h`）；该工程位于 `lisserver\Directory.Build.props` 作用域之外（不获 conan asio 注入），仅以 `-I lisserver\include` 编译，能编过即边界未破。
 

@@ -1,4 +1,4 @@
-# lislib 传输层抽象收口重构 Implementation Plan
+# liblis 传输层抽象收口重构 Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -16,7 +16,7 @@
 - **命令全部在 Git Bash、仓库根目录执行**。msbuild 不在 PATH，用全路径变量：
   ```bash
   MSB="C:/Program Files/Microsoft Visual Studio/18/Professional/MSBuild/Current/Bin/MSBuild.exe"
-  "$MSB" lisserver/lisserver.sln -p:Configuration=Debug -p:Platform=x64     # 全量构建 lislib+listest+lisdemo
+  "$MSB" lisserver/lisserver.sln -p:Configuration=Debug -p:Platform=x64     # 全量构建 liblis+listest+lisdemo
   lisserver/listest/x64/Debug/listest.exe --gtest_color=no                  # 全量测试（当前 64 用例全绿）
   "$MSB" tools/header_probe.vcxproj -p:Configuration=Debug -p:Platform=x64  # 边界守卫（T1 新建）
   ```
@@ -123,7 +123,7 @@ std::unique_ptr<ITransport> make_tcp_client();
 
 ```cpp
 // tools/header_probe.cpp
-// 公共头边界守卫：编译通过 = 接入方只含 lislib 公共头即可使用（无需 asio）。
+// 公共头边界守卫：编译通过 = 接入方只含 liblis 公共头即可使用（无需 asio）。
 // 注意：不含 <lis/tcp_transport.h>——它是库内实现头（含 asio），接入方经 ITransport/IListener 消费。
 // 维护约定：新增公共头必须同步加入下方清单（tcp_transport.h 除外），否则守卫范围静默缩水。
 #if __has_include(<asio.hpp>)
@@ -277,7 +277,7 @@ TEST(Listener, AcceptedCarriesRemoteEndpoint) {
 "$MSB" lisserver/lisserver.sln -p:Configuration=Debug -p:Platform=x64
 ```
 
-Expected: lislib 编译通过；**listest 链接失败**：`error LNK2019: 无法解析的外部符号 ... make_tcp_listener ...`（声明已有、定义未写，正是 TDD 红点）。
+Expected: liblis 编译通过；**listest 链接失败**：`error LNK2019: 无法解析的外部符号 ... make_tcp_listener ...`（声明已有、定义未写，正是 TDD 红点）。
 
 - [ ] **Step 3: 改 `lisserver\include\lis\tcp_transport.h`**——include 区加 listener.h、TcpTransport 私有区加 friend、文件末尾（`TcpTransport` 类定义之后、namespace 收尾之前）新增 `TcpListener` 类。改后完整文件：
 
@@ -808,7 +808,7 @@ void TcpTransport::close() {
 "$MSB" lisserver/lisserver.sln -p:Configuration=Debug -p:Platform=x64
 ```
 
-Expected: lislib 编译通过；`tests\test_transport.cpp` 与 `tests\test_client.cpp` 报 `error C2039: "listen": 不是 "lis::TcpTransport" 的成员`（及 accept/local_port 同类），逐个即迁移点。
+Expected: liblis 编译通过；`tests\test_transport.cpp` 与 `tests\test_client.cpp` 报 `error C2039: "listen": 不是 "lis::TcpTransport" 的成员`（及 accept/local_port 同类），逐个即迁移点。
 
 - [ ] **Step 4: 迁移 `tests\test_transport.cpp`**——改后完整文件（变更：include 不变；`LoopbackEcho`/`ReadTimeoutThenStillUsable`/`ConnectTimeoutThenReusable`/`CloseUnblocksBlockedRead` 四例改用 `make_tcp_listener()` 与 `Accepted`；删除 `Transport.AcceptTimeoutRearms`（已被 Task 2 的 `Listener.AcceptTimeoutRearms` 取代）；原行尾 `listener.close()` 一律删除——unique_ptr 出作用域自毁即释放）：
 
@@ -1097,7 +1097,7 @@ Expected: 差异**只**出现在——include 行（tcp_transport.h → listener
 ```markdown
 ## 6. v0.3 增补（实施固化）
 
-**边界规则：lislib 公共头不得引入 asio 或任何传输实现头。** `tcp_transport.h` 为库内实现头（接入方不直接包含），传输一律经 `ITransport`/`IListener` 与 `make_tcp_client()`/`make_tcp_listener()` 工厂消费。
+**边界规则：liblis 公共头不得引入 asio 或任何传输实现头。** `tcp_transport.h` 为库内实现头（接入方不直接包含），传输一律经 `ITransport`/`IListener` 与 `make_tcp_client()`/`make_tcp_listener()` 工厂消费。
 
 守护机制：仓库根 `tools/header_probe.vcxproj` + `tools/header_probe.cpp`——包含全部公共头（不含 `tcp_transport.h`）；该工程位于 `lisserver\Directory.Build.props` 作用域之外（不获 conan asio 注入），仅以 `-I lisserver\include` 编译，能编过即边界未破。
 

@@ -1,5 +1,5 @@
 // tools/header_probe.cpp
-// 公共头边界守卫：编译通过 = 接入方只含 lislib 公共头即可使用（无需 asio）。
+// 公共头边界守卫：编译通过 = 接入方只含 liblis 公共头即可使用（无需 asio）。
 // 注意：不含 <lis/tcp_transport.h>——它是库内实现头（含 asio），接入方经 ITransport/IListener 消费。
 // 维护约定：新增公共头必须同步加入下方清单（tcp_transport.h 除外），否则守卫范围静默缩水。
 #if __has_include(<asio.hpp>)

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <!-- 三工程公共编译骨架：lislib / listest / lisdemo 共享，工程特有项留在各自 vcxproj。
+  <!-- 三工程公共编译骨架：liblis / listest / lisdemo 共享，工程特有项留在各自 vcxproj。
        本文件由 MSBuild 在 Microsoft.Common.props 阶段自动导入（早于各 vcxproj 内容），
        依赖 $(ProjectName)/$(Platform)/$(Configuration) 的属性在使用点求值，此处定义安全。 -->
 
