@@ -111,6 +111,10 @@ if not exist "%OUT%\liblis.lib" (
   echo [error] missing %OUT%\liblis.lib
   exit /b 1
 )
+if not exist "%OUT%\liblis.pdb" (
+  echo [error] missing %OUT%\liblis.pdb
+  exit /b 1
+)
 for %%f in ("%OUT%\liblis.lib" "%OUT%\liblis.pdb") do echo [ok] %%~ff  %%~zf bytes
 exit /b 0
 
@@ -125,7 +129,9 @@ exit /b 0
 :find_msbuild
 set "MSBUILD="
 set "VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
-if exist "%VSWHERE%" for /f "usebackq delims=" %%i in (`call "%VSWHERE%" -latest -version "[%~1,%~2)" -requires Microsoft.Component.MSBuild -find MSBuild\**\Bin\MSBuild.exe`) do set "MSBUILD=%%i"
+rem "call" is required: cmd /c strips the outer quotes of the backtick command
+if exist "%VSWHERE%" for /f "usebackq delims=" %%i in (`call "%VSWHERE%" -latest -version "[%~1,%~2)" -requires Microsoft.Component.MSBuild -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -find MSBuild\**\Bin\MSBuild.exe`) do set "MSBUILD=%%i"
+if defined MSBUILD if not exist "%MSBUILD%" set "MSBUILD="
 if defined MSBUILD exit /b 0
 for /d %%d in ("%ProgramFiles%\Microsoft Visual Studio\%~3\*") do (
   if exist "%%d\MSBuild\Current\Bin\MSBuild.exe" set "MSBUILD=%%d\MSBuild\Current\Bin\MSBuild.exe"

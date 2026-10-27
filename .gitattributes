@@ -1,0 +1,2 @@
+# 批处理脚本必须 CRLF（cmd 的 goto/for 块对 LF 敏感）；不入库其它归一化规则
+*.bat text eol=crlf
