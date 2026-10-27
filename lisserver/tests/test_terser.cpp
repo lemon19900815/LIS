@@ -20,7 +20,9 @@ TEST(Terser, PathGuardRejectsMalformedTokens) {
     ASSERT_THROW(Terser::set(m, "/MSH-1000", "x"), TerserPathError);    // 超上限
     ASSERT_THROW(Terser::set(m, "/MSH-0", "x"), TerserPathError);       // 0 号字段
     ASSERT_THROW(Terser::set(m, "/MSH-3-abc", "x"), TerserPathError);   // 非数字组分
-    ASSERT_THROW(Terser::set(m, "/MSH-9-2-9", "x"), TerserPathError);   // 多余后缀
+    ASSERT_THROW(Terser::set(m, "/MSH-9-2-9-1", "x"), TerserPathError); // 超过 4 级
+    ASSERT_THROW(Terser::set(m, "/MSH-3(0)-1", "x"), TerserPathError);  // 0 号重复项
+    ASSERT_THROW(Terser::set(m, "/MSH-3(1", "x"), TerserPathError);     // 未闭合的重复序号
     ASSERT_THROW(Terser::set(m, "/-3", "x"), TerserPathError);          // 空段名
     ASSERT_THROW(Terser::set(m, "MSH-3", "x"), TerserPathError);        // 缺 '/'
     ASSERT_THROW(Terser::set(m, "/MSH", "x"), TerserPathError);         // 缺字段号
@@ -56,4 +58,49 @@ TEST(Terser, BadPathThrows) {
     lis::Er7Parser p;
     auto m = p.parse("MSH|^~\\&|A");
     ASSERT_THROW(lis::Terser::get(m, "MSH-3"), lis::TerserPathError);
+}
+
+TEST(Terser, RepeatIndexPath) {
+    lis::Er7Parser p;
+    auto m = p.parse("MSH|^~\\&|A\rPID|1||A^B~C^D");
+    ASSERT_EQ(Terser::get(m, "/PID-3"), "A^B~C^D");        // 整字段文本不变
+    ASSERT_EQ(Terser::get(m, "/PID-3-1"), "A");            // 省略重复序号 = 第 1 项
+    ASSERT_EQ(Terser::get(m, "/PID-3(1)-1"), "A");
+    ASSERT_EQ(Terser::get(m, "/PID-3(2)-1"), "C");
+    ASSERT_EQ(Terser::get(m, "/PID-3(2)"), "C^D");
+    ASSERT_EQ(Terser::get(m, "/PID-3(3)-1"), "");          // 越界重复项
+
+    Terser::set(m, "/PID-3(2)-1", "Y");
+    ASSERT_EQ(Terser::get(m, "/PID-3"), "A^B~Y^D");        // 只改第 2 重复项首组分
+    Terser::set(m, "/PID-3(1)", "Z");
+    ASSERT_EQ(Terser::get(m, "/PID-3"), "Z~Y^D");
+}
+
+TEST(Terser, SubcomponentPath) {
+    lis::Er7Parser p;
+    auto m = p.parse("MSH|^~\\&|A\rPID|1||123||Zhang&San^Si");
+    ASSERT_EQ(Terser::get(m, "/PID-5-1"), "Zhang&San");    // 不指定子组分：整组分原样
+    ASSERT_EQ(Terser::get(m, "/PID-5-1-1"), "Zhang");
+    ASSERT_EQ(Terser::get(m, "/PID-5-1-2"), "San");
+    ASSERT_EQ(Terser::get(m, "/PID-5-1-3"), "");           // 越界子组分
+
+    Terser::set(m, "/PID-5-1-2", "X");
+    ASSERT_EQ(Terser::get(m, "/PID-5"), "Zhang&X^Si");
+    Terser::set(m, "/PID-5-1-3", "T");                     // 子组分补位
+    ASSERT_EQ(Terser::get(m, "/PID-5-1"), "Zhang&X&T");
+}
+
+TEST(Terser, RepeatIndexAfterSubcomponentAndViceVersa) {
+    lis::Er7Parser p;
+    auto m = p.parse("MSH|^~\\&|A\rPID|1||A&B~C&D");
+    ASSERT_EQ(Terser::get(m, "/PID-3(2)-1-2"), "D");
+    ASSERT_EQ(Terser::get(m, "/PID-3(1)-1-1"), "A");
+}
+
+TEST(Terser, Msh2ComponentAccessRejected) {
+    lis::Er7Parser p;
+    auto m = p.parse("MSH|^~\\&|A|B");
+    ASSERT_THROW(Terser::get(m, "/MSH-2-1"), TerserPathError);
+    ASSERT_THROW(Terser::set(m, "/MSH-2-1", "x"), TerserPathError);
+    ASSERT_EQ(Terser::get(m, "/MSH-2"), "^~\\&");          // 整字段仍可读
 }

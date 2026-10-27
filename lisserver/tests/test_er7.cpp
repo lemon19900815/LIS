@@ -80,3 +80,32 @@ TEST(Er7, Msh2RoundTrips) {
     ASSERT_EQ(lis::Terser::get(m, "/MSH-2"), "^~\\&");
     ASSERT_EQ(p.encode(p.parse(p.encode(m))), p.encode(m));
 }
+
+TEST(Er7, Msh2StaysLiteral) {
+    Er7Parser p;
+    auto m = p.parse(kAdt);
+    const auto& msh2 = m.segments[0].fields[1];
+    ASSERT_EQ(msh2.reps.size(), 1u);                       // 分隔符串不被 ~/^ 切开
+    ASSERT_EQ(msh2.reps[0].components.size(), 1u);
+    ASSERT_EQ(msh2.reps[0].components[0], "^~\\&");
+}
+
+TEST(Er7, RepetitionAndSubcomponentModel) {
+    Er7Parser p;
+    auto m = p.parse("MSH|^~\\&|A\rPID|1||A^B~C^D||Zhang&San^Si");
+    const auto& pid = m.segments[1];
+    ASSERT_EQ(pid.fields[2].reps.size(), 2u);              // ~ 切成两个重复项
+    ASSERT_EQ(pid.fields[2].reps[0].components.size(), 2u);
+    ASSERT_EQ(pid.fields[2].reps[0].components[1], "B");   // 组分边界不再跨重复项错位
+    ASSERT_EQ(pid.fields[2].reps[1].components[0], "C");
+    ASSERT_EQ(pid.fields[4].reps[0].components[0], "Zhang&San");   // & 仍是字面量
+    ASSERT_NE(p.encode(m).find("PID|1||A^B~C^D||Zhang&San^Si"), std::string::npos);
+}
+
+TEST(Er7, EmptyRepetitionRoundTrips) {
+    Er7Parser p;
+    auto m = p.parse("MSH|^~\\&|A\rPID|1||A~~B");
+    ASSERT_EQ(m.segments[1].fields[2].reps.size(), 3u);
+    ASSERT_EQ(lis::Terser::get(m, "/PID-3(2)"), "");
+    ASSERT_NE(p.encode(m).find("PID|1||A~~B"), std::string::npos);
+}

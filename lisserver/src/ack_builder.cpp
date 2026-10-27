@@ -60,7 +60,7 @@ Segment make_msh_like(const Message& inbound, const std::string& trigger) {
     msh.fields.push_back(Field{{msh2}});                  // fields[1]=MSH-2
     auto put = [&](int field_no, std::initializer_list<std::string> comps) {
         while (msh.fields.size() < static_cast<size_t>(field_no)) msh.fields.push_back(Field{});
-        msh.fields[field_no - 1].components.assign(comps.begin(), comps.end());
+        msh.fields[field_no - 1].reps.assign(1, Repetition{comps});
     };
     put(3, {Terser::get(inbound, "/MSH-5")});   // 我们的发送方 = 对方的接收方
     put(4, {Terser::get(inbound, "/MSH-6")});

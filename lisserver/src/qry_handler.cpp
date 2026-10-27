@@ -22,7 +22,7 @@ Message QryHandler::handle(const Message& in, const MessageMeta&) {
                                 std::string(1, in.ec.escape) + std::string(1, in.ec.subcomponent)}});
     auto put = [&](int n, std::initializer_list<std::string> c) {
         while (msh.fields.size() < static_cast<size_t>(n)) msh.fields.push_back(Field{});
-        msh.fields[n - 1].components.assign(c.begin(), c.end());
+        msh.fields[n - 1].reps.assign(1, Repetition{c});
     };
     put(3, {Terser::get(in, "/MSH-5")});             // 收发互换（同 build_ack 规则）
     put(4, {Terser::get(in, "/MSH-6")});

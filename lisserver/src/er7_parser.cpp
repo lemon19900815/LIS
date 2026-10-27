@@ -16,9 +16,13 @@ std::vector<std::string> split(const std::string& s, char d) {
     return out;
 }
 
-Field make_field(const std::string& text, char comp) {
+Field make_field(const std::string& text, const EncodingChars& ec) {
     Field f;
-    for (auto& c : split(text, comp)) f.components.push_back(c);
+    for (const auto& rep_text : split(text, ec.repeat)) {
+        Repetition rep;
+        for (auto& c : split(rep_text, ec.component)) rep.components.push_back(c);
+        f.reps.push_back(std::move(rep));
+    }
     return f;
 }
 
@@ -30,10 +34,11 @@ Segment parse_segment(const std::string& line, const EncodingChars& ec, bool is_
     auto parts = split(line.substr(pos + 1), ec.field);
     if (is_msh) {
         seg.fields.push_back(Field{});                       // fields[0]：MSH-1 占位
-        seg.fields.push_back(make_field(parts.front(), ec.component));  // fields[1]：MSH-2
+        // MSH-2 是分隔符定义本身，按字面量整串保存（不能按 ~/^ 切）
+        seg.fields.push_back(Field{Repetition{parts.front()}});
         parts.erase(parts.begin());
     }
-    for (auto& p : parts) seg.fields.push_back(make_field(p, ec.component));
+    for (auto& p : parts) seg.fields.push_back(make_field(p, ec));
     return seg;
 }
 
@@ -70,10 +75,14 @@ std::string Er7Parser::encode(const Message& m) const {
         size_t begin = (s.name == "MSH") ? 1 : 0;   // MSH 跳过 fields[0] 占位
         for (size_t j = begin; j < s.fields.size(); ++j) {
             if (j > begin) out.push_back(m.ec.field);
-            const auto& comps = s.fields[j].components;
-            for (size_t k = 0; k < comps.size(); ++k) {
-                if (k) out.push_back(m.ec.component);
-                out += comps[k];
+            const auto& reps = s.fields[j].reps;
+            for (size_t r = 0; r < reps.size(); ++r) {
+                if (r) out.push_back(m.ec.repeat);
+                const auto& comps = reps[r].components;
+                for (size_t k = 0; k < comps.size(); ++k) {
+                    if (k) out.push_back(m.ec.component);
+                    out += comps[k];
+                }
             }
         }
     }
