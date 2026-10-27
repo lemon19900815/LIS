@@ -39,5 +39,5 @@
 - 刷新：`conan install lisserver` → `conan cache path <ref>` → 按上述布局拷头/库/许可证，更新版本号。
 - vendored gtest 二进制内嵌 conan 构建路径（调试信息与断言消息），不影响构建；验收扫描用 `git grep -I`（`-I` 跳过二进制文件）。
 - 公共头边界守卫：`tools\header_probe.vcxproj`（v145）不导入 `third_party.props`，asio 不得可见。
-- 公共头目录 `lisserver\include\lis` 只放对消费者可见的头（13 个）；库内实现头
+- 公共头目录 `lisserver\include\lis` 只放对消费者可见的头（14 个）；库内实现头
   `tcp_transport.h`（含 asio）、`mllp_codec.h` 位于 `lisserver\src`，不随 `target` 分发。

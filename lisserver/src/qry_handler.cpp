@@ -1,8 +1,8 @@
 // src/qry_handler.cpp
 #include <lis/qry_handler.h>
 #include <lis/ack_builder.h>
+#include <lis/response_builder.h>
 #include <lis/terser.h>
-#include <initializer_list>
 
 namespace lis {
 
@@ -16,20 +16,7 @@ Message QryHandler::handle(const Message& in, const MessageMeta&) {
     out.ec = in.ec;
     out.version = in.version;
 
-    Segment msh{"MSH", {}};
-    msh.fields.push_back(Field{});
-    msh.fields.push_back(Field{{std::string(1, in.ec.component) + in.ec.repeat +
-                                std::string(1, in.ec.escape) + std::string(1, in.ec.subcomponent)}});
-    auto put = [&](int n, std::initializer_list<std::string> c) {
-        while (msh.fields.size() < static_cast<size_t>(n)) msh.fields.push_back(Field{});
-        msh.fields[n - 1].reps.assign(1, Repetition{c});
-    };
-    put(3, {Terser::get(in, "/MSH-5")});             // 收发互换（同 build_ack 规则）
-    put(4, {Terser::get(in, "/MSH-6")});
-    put(5, {Terser::get(in, "/MSH-3")});
-    put(6, {Terser::get(in, "/MSH-4")});
-    put(9, {"ORF", Terser::get(in, "/MSH-9-2")});
-    out.segments.push_back(std::move(msh));
+    out.segments.push_back(build_response_msh(in, "ORF", Terser::get(in, "/MSH-9-2")));
 
     out.segments.push_back(Segment{"MSA", {Field{{"AA"}}, Field{{Terser::get(in, "/MSH-10")}}}});
 

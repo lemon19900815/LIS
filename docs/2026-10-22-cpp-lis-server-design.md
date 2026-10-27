@@ -130,6 +130,16 @@ enum class AckCode { AA, AE, AR };   // 对齐 liscomm LISCOMM_ACK_CODE
 Message build_ack(const Message& inbound, AckCode code, const std::string& err = {});
 ```
 
+MSH 头构造已提炼为公共助手（`lis/response_builder.h`），非 ACK 响应（ORF 等）与 `build_ack` 共用同一套规则，
+外部自定义 handler 不必再抄 MSH 互换/时间戳/控制 ID 的样板：
+
+```cpp
+// MSH-1 占位；MSH-2 原样复制（空则按入站 ec 重建）；MSH-3/4/5/6 收发互换；
+// MSH-7 当前时间；MSH-9 = msg_type[^trigger]；MSH-10 新控制 ID；MSH-11/12 复制入站
+Segment build_response_msh(const Message& inbound, const std::string& msg_type,
+                           const std::string& trigger = {});
+```
+
 ### 5.5 Router / IHandler
 
 ```cpp

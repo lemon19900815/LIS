@@ -15,6 +15,7 @@
 #include <lis/oru_handler.h>
 #include <lis/provider.h>
 #include <lis/qry_handler.h>
+#include <lis/response_builder.h>
 #include <lis/router.h>
 #include <lis/terser.h>
 #include <lis/thread_pool.h>

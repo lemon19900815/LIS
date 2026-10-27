@@ -24,6 +24,12 @@ TEST(E2e, QueryReturnsOrfAndOruGetsAck) {
     auto orf = client.send_and_receive(p.parse(
         "MSH|^~\\&|I|F|L|F|20261022120000||QRY^Q02|E1|P|2.3.1\rQRD|||||BAR001"));
     ASSERT_EQ(lis::Terser::get(orf, "/MSH-9"), "ORF^Q02");
+    ASSERT_EQ(lis::Terser::get(orf, "/MSH-3"), "L");            // 收发互换（入站 MSH-5）
+    ASSERT_EQ(lis::Terser::get(orf, "/MSH-5"), "I");            // 收发互换（入站 MSH-3）
+    ASSERT_EQ(lis::Terser::get(orf, "/MSH-7").size(), 14u);     // ORF 也带 MSH-7
+    ASSERT_NE(lis::Terser::get(orf, "/MSH-10"), "E1");          // 新控制 ID
+    ASSERT_EQ(lis::Terser::get(orf, "/MSH-11"), "P");
+    ASSERT_EQ(lis::Terser::get(orf, "/MSH-12"), "2.3.1");
     ASSERT_EQ(lis::Terser::get(orf, "/MSA-1"), "AA");
     ASSERT_EQ(lis::Terser::get(orf, "/MSA-2"), "E1");
     ASSERT_EQ(lis::Terser::get(orf, "/PID-3"), "P0001");
