@@ -69,10 +69,13 @@ TEST(Ack, EscapesErrDelimiters) {
     lis::Er7Parser p;
     auto in = p.parse(kInbound);
     auto ack = lis::build_ack(in, lis::AckCode::AE, "bad | field ^ tail \r\n");
-    auto m2 = p.parse(p.encode(ack));
+    const std::string wire = p.encode(ack);
+    auto m2 = p.parse(wire);
     ASSERT_EQ(m2.segments.size(), 3u);         // \r 不再制造假段边界
-    ASSERT_EQ(lis::Terser::get(m2, "/MSA-3"), "bad \\F\\ field \\S\\ tail \\X0d\\\\X0a\\");
-    ASSERT_EQ(lis::Terser::get(m2, "/ERR-1-4"), "bad \\F\\ field \\S\\ tail \\X0d\\\\X0a\\");
+    // 线上按协议转义；内存模型（含 re-parse 后）是解码后的原文
+    ASSERT_NE(wire.find("bad \\F\\ field \\S\\ tail \\X0d\\\\X0a\\"), std::string::npos);
+    ASSERT_EQ(lis::Terser::get(m2, "/MSA-3"), "bad | field ^ tail \r\n");
+    ASSERT_EQ(lis::Terser::get(m2, "/ERR-1-4"), "bad | field ^ tail \r\n");
 }
 
 TEST(Ack, CustomEncodingCharsPreservedAndEscaped) {
@@ -84,6 +87,7 @@ TEST(Ack, CustomEncodingCharsPreservedAndEscaped) {
     ASSERT_EQ(lis::Terser::get(ack, "/MSH-4"), "RecvFac");
     ASSERT_EQ(lis::Terser::get(ack, "/MSH-5"), "SendApp");
     ASSERT_EQ(lis::Terser::get(ack, "/MSH-6"), "SendFac");
-    auto m2 = p.parse(p.encode(ack));
-    ASSERT_EQ(lis::Terser::get(m2, "/MSA-3"), "a$F$b$S$c");  // 转义符随报文取 $，@ 同样双侧包夹
+    const std::string wire = p.encode(ack);
+    ASSERT_NE(wire.find("a$F$b$S$c"), std::string::npos);    // 转义符随报文取 $
+    ASSERT_EQ(lis::Terser::get(p.parse(wire), "/MSA-3"), "a|b@c");
 }

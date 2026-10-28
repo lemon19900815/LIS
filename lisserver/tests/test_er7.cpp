@@ -99,7 +99,10 @@ TEST(Er7, RepetitionAndSubcomponentModel) {
     ASSERT_EQ(pid.fields[2].reps[0].components[1], "B");   // 组分边界不再跨重复项错位
     ASSERT_EQ(pid.fields[2].reps[1].components[0], "C");
     ASSERT_EQ(pid.fields[4].reps[0].components[0], "Zhang&San");   // & 仍是字面量
-    ASSERT_NE(p.encode(m).find("PID|1||A^B~C^D||Zhang&San^Si"), std::string::npos);
+    // 字面 & 写线时转义为 \T\（否则回读会被当成子组分分隔符）
+    const std::string wire = p.encode(m);
+    ASSERT_NE(wire.find("PID|1||A^B~C^D||Zhang\\T\\San^Si"), std::string::npos);
+    ASSERT_EQ(lis::Terser::get(p.parse(wire), "/PID-5-1"), "Zhang&San");
 }
 
 TEST(Er7, EmptyRepetitionRoundTrips) {
@@ -108,4 +111,43 @@ TEST(Er7, EmptyRepetitionRoundTrips) {
     ASSERT_EQ(m.segments[1].fields[2].reps.size(), 3u);
     ASSERT_EQ(lis::Terser::get(m, "/PID-3(2)"), "");
     ASSERT_NE(p.encode(m).find("PID|1||A~~B"), std::string::npos);
+}
+
+TEST(Er7, EscapeSequenceDecodesOnParse) {
+    Er7Parser p;
+    auto m = p.parse("MSH|^~\\&|A\rOBX|1|NM|WBC^WBC||5.3|10\\S\\9/L");
+    ASSERT_EQ(lis::Terser::get(m, "/OBX-6"), "10^9/L");                  // \S\ 还原为字面 ^
+    ASSERT_EQ(m.segments[1].fields[5].reps[0].components.size(), 1u);    // 转义序列不被当组分切开
+}
+
+TEST(Er7, EncodeEscapesLiteralDelimiters) {
+    Er7Parser p;
+    auto m = p.parse("MSH|^~\\&|A|B|C|D|||QRY^Q02|ID1|P|2.3");
+    lis::Segment obx{"OBX", {}};
+    obx.fields.push_back(lis::Field{{"1"}});
+    obx.fields.push_back(lis::Field{{"a|b^c~d&e\\f"}});                  // 内存里是解码后的字面量
+    m.segments.push_back(std::move(obx));
+    const std::string wire = p.encode(m);
+    ASSERT_NE(wire.find("OBX|1|a\\F\\b\\S\\c\\R\\d\\T\\e\\E\\f"), std::string::npos);
+    ASSERT_EQ(lis::Terser::get(p.parse(wire), "/OBX-2"), "a|b^c~d&e\\f");
+}
+
+TEST(Er7, HexEscapeDecodesToByte) {
+    Er7Parser p;
+    auto m = p.parse("MSH|^~\\&|A\rNTE|1||line1\\X0d\\\\X0a\\line2");
+    ASSERT_EQ(lis::Terser::get(m, "/NTE-3"), "line1\r\nline2");
+    ASSERT_NE(p.encode(m).find("line1\\X0d\\\\X0a\\line2"), std::string::npos);   // 再编码还原
+}
+
+TEST(Er7, UnknownEscapeKeptVerbatim) {
+    Er7Parser p;
+    auto m = p.parse("MSH|^~\\&|A\rNTE|1||a\\Q\\b");
+    ASSERT_EQ(lis::Terser::get(m, "/NTE-3"), "a\\Q\\b");                 // 未定义序列原样保留
+}
+
+TEST(Er7, CustomEscapeCharRoundTrips) {
+    Er7Parser p;
+    auto m = p.parse("MSH|@#$%|A\rNTE|1||a$F$b$S$c");                   // 转义符 $、组分 @
+    ASSERT_EQ(lis::Terser::get(m, "/NTE-3"), "a|b@c");
+    ASSERT_NE(p.encode(m).find("a$F$b$S$c"), std::string::npos);
 }

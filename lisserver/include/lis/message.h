@@ -11,7 +11,8 @@ struct EncodingChars {   // 取自报文本身（MSH-1/MSH-2），非硬编码
     char field = '|', component = '^', repeat = '~', escape = '\\', subcomponent = '&';
 };
 
-// 一个重复项：组分之间用 ^ 分隔；子组分 & 仍以字面量留在组分串内
+// 一个重复项：组分之间用 ^ 分隔；子组分 & 仍以字面量留在组分串内。
+// 组分文本是“解码后”的字面量：\S\ 等在 parse 时还原、encode 时再转义（MSH-2 除外）。
 struct Repetition {
     std::vector<std::string> components;
     Repetition() = default;
