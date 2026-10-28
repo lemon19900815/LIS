@@ -1,2 +1,5 @@
 .worktrees/
 tools/obj/
+
+# 客户协议文档与 Word 临时锁文件不入库
+docs/*.docx
