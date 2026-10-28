@@ -24,7 +24,7 @@ TEST(Ack, AaCopiesAndSwapsFields) {
     ASSERT_EQ(lis::Terser::get(ack, "/MSH-4"), "RecvFac");
     ASSERT_EQ(lis::Terser::get(ack, "/MSH-5"), "SendApp");
     ASSERT_EQ(lis::Terser::get(ack, "/MSH-6"), "SendFac");
-    ASSERT_NE(lis::Terser::get(ack, "/MSH-10"), "CTRL001");     // 新消息 ID
+    ASSERT_EQ(lis::Terser::get(ack, "/MSH-10"), "CTRL001");     // MSH-10 回带请求 control-id，仪器侧据此关联应答
     ASSERT_EQ(lis::Terser::get(ack, "/MSH-11"), "P");
     ASSERT_EQ(lis::Terser::get(ack, "/MSH-12"), "2.3.1");       // 版本复制
 }

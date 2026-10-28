@@ -41,7 +41,10 @@ Message build_ack(const Message& inbound, AckCode code, const std::string& err) 
     const std::string trigger = Terser::get(inbound, "/MSH-9-2");
     const std::string escaped = escape_err(err, inbound.ec);   // 按入站报文自身的分隔符转义
 
-    ack.segments.push_back(build_response_msh(inbound, "ACK", trigger));
+    Segment msh = build_response_msh(inbound, "ACK", trigger);
+    // ACK 的 MSH-10 回带请求的 control-id（仪器侧按 MSH-10 关联应答，与 MSA-2 同值）
+    msh.fields[9].reps.assign(1, Repetition{{Terser::get(inbound, "/MSH-10")}});
+    ack.segments.push_back(std::move(msh));
 
     Segment msa{"MSA", {}};
     msa.fields.push_back(Field{{code_str}});                          // MSA-1
