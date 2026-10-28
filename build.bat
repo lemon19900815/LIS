@@ -63,16 +63,16 @@ set "CONFIGS=Debug"
 goto check_deps
 
 :check_deps
-if not exist "%ROOT%lisserver\target\x64-windows\include\asio.hpp" goto missing_deps
-if not exist "%ROOT%lisserver\target\x64-windows\include\gtest\gtest.h" goto missing_deps
-if not exist "%ROOT%lisserver\target\x64-windows\debug\lib\gtest.lib" goto missing_deps
-if not exist "%ROOT%lisserver\target\x64-windows\debug\lib\gtest_main.lib" goto missing_deps
+if not exist "%ROOT%liblis\target\x64-windows\include\asio.hpp" goto missing_deps
+if not exist "%ROOT%liblis\target\x64-windows\include\gtest\gtest.h" goto missing_deps
+if not exist "%ROOT%liblis\target\x64-windows\debug\lib\gtest.lib" goto missing_deps
+if not exist "%ROOT%liblis\target\x64-windows\debug\lib\gtest_main.lib" goto missing_deps
 if /i "%TGT%"=="lib" goto find_vs2022
 goto find_vs18
 
 :missing_deps
-echo [error] vendored dependency missing under lisserver\target\x64-windows
-echo         refresh: conan install lisserver, then copy headers/libs per
+echo [error] vendored dependency missing under liblis\target\x64-windows
+echo         refresh: conan install liblis, then copy headers/libs per
 echo         docs\2026-10-26-liblis-v143-build.md
 exit /b 4
 
@@ -89,24 +89,24 @@ exit /b 0
 :find_vs18
 call :find_msbuild 18.0 19.0 18
 if not defined MSBUILD exit /b 3
-echo [build] lisserver.sln Debug (v145, VS18, tests)
-"%MSBUILD%" "%ROOT%lisserver\lisserver.sln" -p:Configuration=Debug -p:Platform=x64 -v:m -nologo
+echo [build] liblis.sln Debug (v145, VS18, tests)
+"%MSBUILD%" "%ROOT%liblis\liblis.sln" -p:Configuration=Debug -p:Platform=x64 -v:m -nologo
 if errorlevel 1 exit /b 1
-if not exist "%ROOT%lisserver\listest\x64\Debug\listest.exe" (
-  echo [error] missing lisserver\listest\x64\Debug\listest.exe
+if not exist "%ROOT%liblis\listest\x64\Debug\listest.exe" (
+  echo [error] missing liblis\listest\x64\Debug\listest.exe
   exit /b 1
 )
-echo [ok] %ROOT%lisserver\listest\x64\Debug\listest.exe
+echo [ok] %ROOT%liblis\listest\x64\Debug\listest.exe
 exit /b 0
 
 :build_lib
 echo [build] liblis %~1 (v143, VS2022)
-"%MSBUILD%" "%ROOT%lisserver\liblis.vcxproj" -p:Configuration=%~1 -p:Platform=x64 -p:PlatformToolset=v143 -p:OutDir=lib\x64\%~1-v143\ -p:IntDir=obj\liblis\x64\%~1-v143\ -v:m -nologo
+"%MSBUILD%" "%ROOT%liblis\liblis.vcxproj" -p:Configuration=%~1 -p:Platform=x64 -p:PlatformToolset=v143 -p:OutDir=lib\x64\%~1-v143\ -p:IntDir=obj\liblis\x64\%~1-v143\ -v:m -nologo
 if errorlevel 1 (
   echo [error] build failed: liblis %~1
   exit /b 1
 )
-set "OUT=%ROOT%lisserver\lib\x64\%~1-v143"
+set "OUT=%ROOT%liblis\lib\x64\%~1-v143"
 if not exist "%OUT%\liblis.lib" (
   echo [error] missing %OUT%\liblis.lib
   exit /b 1
@@ -119,11 +119,11 @@ for %%f in ("%OUT%\liblis.lib" "%OUT%\liblis.pdb") do echo [ok] %%~ff  %%~zf byt
 exit /b 0
 
 :cleanup_old_libs
-for /d %%d in ("%ROOT%lisserver\lib\x64\*") do (
+for /d %%d in ("%ROOT%liblis\lib\x64\*") do (
   if exist "%%d\lislib.lib" del /q "%%d\lislib.lib"
   if exist "%%d\lislib.pdb" del /q "%%d\lislib.pdb"
 )
-if exist "%ROOT%lisserver\obj\lislib" rmdir /s /q "%ROOT%lisserver\obj\lislib"
+if exist "%ROOT%liblis\obj\lislib" rmdir /s /q "%ROOT%liblis\obj\lislib"
 exit /b 0
 
 :find_msbuild
@@ -145,5 +145,5 @@ echo Usage: build.bat [-c Debug^|Release^|all] [-t lib^|sln]
 echo.
 echo   build.bat              Build liblis Debug+Release with VS2022 (v143)
 echo   build.bat -c Debug     Build liblis Debug only (v143)
-echo   build.bat -t sln       Build lisserver.sln Debug with VS18 (v145, tests)
+echo   build.bat -t sln       Build liblis.sln Debug with VS18 (v145, tests)
 exit /b 2
